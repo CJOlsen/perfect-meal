@@ -569,7 +569,10 @@ def make_daily_max(groupings):
 ########################### JSON considerations #############################
 #############################################################################
 
-## Filters for trimming data coming in from file
+##
+## JSON filters (these filter foods *before* they're mapped into the custom
+##               Food objects)
+
 class Group_Filter(object):
     def __init__(self, name_list=None):
         ## to use initialize with a list of some or all of the keys from
@@ -584,7 +587,8 @@ class Group_Filter(object):
              'Legumes and Legume Products':0, 'Lamb, Veal, and Game Products':0,\
              'Baked Products':0, 'Snacks':0, 'Sweets':0,
              'Cereal Grains and Pasta':0,'Fast Foods':0,\
-             'Meals, Entrees, and Sidedishes':0,'Restaurant Foods':0}
+             'Meals, Entrees, and Sidedishes':0, 'Ethnic Foods':0,\
+             'Restaurant Foods':0}
         if name_list is not None:
             for name in name_list:
                 self.d[name] = 1
@@ -606,56 +610,19 @@ class Name_Filter(object):
         else:
             return False
 
-datafilepath = "/home/james/GitRepos/perfect_diet/database/json/out.txt"
-datafile = open(datafilepath, "r")
-
-def reset_data():
-    """ This resets the input file.  Since file reading is done by the
-        readline() method this method needs to be called when one wants the
-        start of the JSON db.
-        """
-    global datafile
-    datafile = open(datafilepath, "r")
-
-
-## IMPORTANT: the JSON file is not a proper JSON file, the commas between the
-## objects have been replaced with newlines so they can be brought in one line
-## (one object) at a time using readline() and then they're turned into python
-## dictionaries using ast.literal_eval()
-
-import ast
-def get_new_data():
-    """ Brings in a new line from the (pseudo) JSON file
-        Returns that line as a dictionary.
-        """
-    # ast.literal_eval() is safer than regular eval()
-    obj = datafile.readline()
-    return ast.literal_eval(obj)
-
-
 def get_all_groups():
     """ Gathers the different food groups from the database, only used for
-        db exploration.
+        db exploration, i.e. making the group filter template.
         """
-    # see the_groups directly below
+    global db_tuple
     groups = []
-    count = 0
     error_count = 0
-    while True:
-        count += 1
-        if count % 1000 == 0: print count, "total", error_count, "skipped"
-        try:
-            a = get_new_data()
-        except SyntaxError:
-            break #end of file
-        except:
-            error_count += 1
-            continue
-        if a['group'] not in groups:
-            groups.append(a['group'])
-    reset_data()
-    if dubugging: print error_count, "objects had troubles and were skipped"
+    for jdict in db_tuple:
+        if jdict['group'] not in groups:
+            groups.append(jdict['group'])
+    if debugging: print error_count, "objects had troubles and were skipped"
     return groups
+
 
 ## 1441 objects skipped, but from the rest the groups were:
 ## will need to investigate those 1441 objects (ascii errors? i.e. 2% milk)
@@ -667,26 +634,11 @@ the_groups = ['Dairy and Egg Products', 'Spices and Herbs', 'Baby Foods',\
               'Beef Products', 'Beverages', 'Finfish and Shellfish Products',\
               'Legumes and Legume Products', 'Lamb, Veal, and Game Products',\
               'Baked Products', 'Snacks', 'Sweets', 'Cereal Grains and Pasta',\
-              'Fast Foods', 'Meals, Entrees, and Sidedishes',\
+              'Fast Foods', 'Meals, Entrees, and Sidedishes','Ethnic Foods',\
               'Restaurant Foods']
 
 ## a filter for groups (0 for discard, 1 for keep):
 ## ** this is used for filtering JSON objects before they get mapped in **
-
-##groups_filter = {'Dairy and Egg Products':0, 'Spices and Herbs':0,\
-##                 'Baby Foods':0, 'Fats and Oils':1, 'Poultry Products':0,\
-##                 'Soups, Sauces, and Gravies':1, 'Sausages and Luncheon Meats':0,\
-##                 'Breakfast Cereals':1,'Fruits and Fruit Juices':1,\
-##                 'Pork Products':0, 'Vegetables and Vegetable Products':1,\
-##                 'Nut and Seed Products':1,'Beef Products':0, 'Beverages':1,\
-##                 'Finfish and Shellfish Products':0,\
-##                 'Legumes and Legume Products':1, 'Lamb, Veal, and Game Products':0,\
-##                 'Baked Products':1, 'Snacks':1, 'Sweets':1,
-##                 'Cereal Grains and Pasta':1,'Fast Foods':0,\
-##                 'Meals, Entrees, and Sidedishes':1,'Restaurant Foods':0}
-## another way to filter the groups?  Is it faster to check membership or
-## or to look up the value for a key and check its value?
-##groups_to_keep = [x for x in groups_filter if groups_filter[x]==1]
 
 basic_filter = Group_Filter(['Fats and Oils', 'Soups, Sauces, and Gravies',
                               'Breakfast Cereals', 'Fruits and Fruit Juices',
@@ -695,55 +647,6 @@ basic_filter = Group_Filter(['Fats and Oils', 'Soups, Sauces, and Gravies',
                               'Legumes and Legume Products', 'Baked Products',
                               'Snacks', 'Sweets', 'Cereal Grains and Pasta',
                               'Meals, Entrees, and Sidedishes'])
-                              
-def get_filtered_object_count(the_filter):
-    """ Counts the number of objects that can successfully be retrieved from
-        the JSON database as constrained by the_filter
-        """
-    count = 0
-    for line in datafile:
-        try:
-            new_obj = ast.literal_eval(line)
-        except:
-            continue
-        if the_filter.check(new_obj["group"]):
-            count += 1
-    return count
-
-def get_filtered_object_names(the_filter):
-    """ Gets the names of the objects that can be successfully retrieved from
-        the JSON database as constrained by the_filter
-        """
-    food_names = []
-    for line in datafile:
-        try:
-            new_obj = ast.literal_eval(line)
-        except:
-            continue
-        if the_filter.check(new_obj["group"]):
-            food_names.append(new_obj["description"])
-    return food_names
-
-def get_partial_object_list(the_filter, number):
-    """ Returns the first number of objects from the JSON db constrained by the
-        group filter
-        """
-    objects = []
-    count = 0
-    line_count = 0
-    for line in datafile:
-        line_count += 1
-        #print 'new line in datafile!', line_count
-        if count > number:
-            return objects
-        try:
-            new_obj = ast.literal_eval(line)
-        except:
-            continue
-        if the_filter.check(new_obj["group"]):
-            objects.append(new_obj)
-            count += 1
-    return objects
 
         
 veggie_filter = Group_Filter(['Vegetables and Vegetable Products',
@@ -752,24 +655,6 @@ veggie_beef_filter = Group_Filter(['Vegetables and Vegetable Products',
                                    'Nut and Seed Products',
                                    'Beef Products'])
                                    
-                              
-                              
-#### the old way
-##veggie_filter = {'Dairy and Egg Products':0, 'Spices and Herbs':0,\
-##             'Baby Foods':0, 'Fats and Oils':0, 'Poultry Products':0,\
-##             'Soups, Sauces, and Gravies':0, 'Sausages and Luncheon Meats':0,\
-##             'Breakfast Cereals':0,'Fruits and Fruit Juices':0,\
-##             'Pork Products':0, 'Vegetables and Vegetable Products':1,\
-##             'Nut and Seed Products':1,'Beef Products':0, 'Beverages':0,\
-##             'Finfish and Shellfish Products':0,\
-##             'Legumes and Legume Products':0, 'Lamb, Veal, and Game Products':0,\
-##             'Baked Products':0, 'Snacks':0, 'Sweets':0,
-##             'Cereal Grains and Pasta':0,'Fast Foods':0,\
-##             'Meals, Entrees, and Sidedishes':0,'Restaurant Foods':0}
-##
-##def get_veggies():
-##    return get_partial_object_list(veggie_filter, 9000) # 9000 = more than all
-
 # this is a filter to pick a subset of the vegetable group, names are just
 # copy/pasted from the output of the get_veggies funtion that output 872 veggies
 # many of which are basically the same thing, so this narrows it down a bit
@@ -782,24 +667,6 @@ veggie_name_filter = ['Alfalfa seeds, sprouted, raw', 'Amaranth leaves, raw',
                       'Broccoli, raw', 'Brussels sprouts, raw',
                       'Lentils, sprouted, cooked, stir-fried, without salt',]
 
-def get_foods_by_group_and_name(group_filter, name_filter):
-    """ Sterps through the JSON database and keeps objects that satisfy the
-        group and name filters' constraints.
-        """
-    assert type(group_filter) is Group_Filter and \
-           type(name_filter) is Name_Filter
-    objects = []
-    reset_data()
-    for line in datafile:
-        try:
-            new_obj = ast.literal_eval(line)
-        except:
-            continue
-        if group_filter.check(new_obj['group']) and\
-           name_filter.check(new_obj['description']):
-            objects.append(new_obj)
-    return objects
-
 def get_food_from_group_by_name(group_filter, name):
     """ Given a name and a filter of the group that name is in, returns the
         single corresponding object.
@@ -807,46 +674,48 @@ def get_food_from_group_by_name(group_filter, name):
     ## this should be optimized later (should terminate when object is found)
     assert type(group_filter) is Group_Filter and type(name) is str
     return get_foods_by_group_and_name(group_filter, Name_Filter([name]))[0]
-    
-## These methods were for gleaning the element lists from the JSON database
-def get_elements():
-    count = 0
-    elements = set()
-    for line in datafile:
-        count += 1
-        if count > 10000: return elements # runaway check
-        try:
-            new_obj = ast.literal_eval(line)
-        except:
-            continue
-        #print 'new_obj:', type(new_obj)
-        elements |= set([new_obj['nutrients'][x]['description']
-                      for x
-                      in range(len(new_obj['nutrients']))
-                      if new_obj['nutrients'][x]['group'] == 'Elements'])
-    return elements
-    
-def get_nutrient_subgroup(subgroup):
-    assert type(subgroup) is str
-    count = 0
-    sub_members = set()
-    for line in datafile:
-        count += 1
-        if count > 10000: return sub_members # runaway check
-        try:
-            new_obj = ast.literal_eval(line)
-        except:
-            continue
-        # union operator and set comprehension below
-        sub_members |= set([new_obj['nutrients'][x]['description']
-                          for x
-                          in range(len(new_obj['nutrients']))
-                          if new_obj['nutrients'][x]['group'] == subgroup])
-    return sub_members
 
 
-def sort_foods_by_nutrient(nutrient, group_filter):
-    pass
+##
+## JSON data
+## 
+
+import json
+jsonfile = open("/home/james/GitRepos/perfect_diet/database/json/foods-2011-10-03.json",
+                "r")
+db_tuple = tuple(json.load(jsonfile)) # tuple to prevent mutation
+
+def get_filtered_object_count(the_filter):
+    """ Counts the number of objects that can successfully be retrieved from
+        the JSON database as constrained by the_filter
+        """
+    count = 0
+    for jdict in db_tuple:
+        if the_filter.check(jdict["group"]):
+            count += 1
+    return count
+
+def get_filtered_object_names(the_filter):
+    """ Gets the names of the objects that can be successfully retrieved from
+        the JSON database as constrained by the_filter
+        """
+    food_names = []
+    for jdict in db_tuple:
+        if the_filter.check(jdict["group"]):
+            food_names.append(jdict["description"])
+    return food_names
+
+def get_foods_by_group_and_name(group_filter, name_filter):
+    """ Steps through the JSON database and keeps objects that satisfy the
+        group and name filters' constraints.
+        """
+    assert type(group_filter) is Group_Filter and \
+           type(name_filter) is Name_Filter
+    objects = []
+    for jdict in db_tuple:
+        if group_filter.check(jdict['group']) and\
+           name_filter.check(new_obj['description']):
+            objects.append(jdict)
 
 
 #############################################################################
@@ -895,7 +764,6 @@ def greedy_alg(min_meal, max_meal, servings, food_groups, nutrient_groups,
         seed_name: name of the first food used as a seed
         names: optional list of food names, filters the JSON objects
         """
-    reset_data()
     if names is not None:
         objects = get_foods_by_group_and_name(food_groups, names)
     else:
@@ -1021,5 +889,8 @@ def balance(min_meal, meal):
                                 (meal.d(group)[key] / min_meal.d(group)[key]))
     return b_factor
     
+
+
+
 
 
