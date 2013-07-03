@@ -28,7 +28,7 @@
 ####		various data for the program
 ####	
 ####	JSON Considerations (pseudo JSON, really)
-####		Group_Filter
+####		Food_Group_Filter
 ####		Name_Filter
 ####		open JSON file
 ####		read in JSON objects (filtered and not)
@@ -65,19 +65,28 @@ class Food(object):
         ## same for all Foods being used (one *could* add try/excepts to
         ## the "add" method of the Meal class to "fix" this)
         self.name = name
-        self.groupings = groupings
-        assert type(groupings) is list
-        for i in groupings:
-            assert i in ['elements', 'vitamins', 'energy', 'sugars',
-                         'amino_acids', 'other', 'composition']
-        if 'elements' in groupings:
+        assert type(groupings) is list or type(groupings) is Food_Group_Filter
+        if type(groupings) is list:
+            self.groupings = groupings
+        else:
+            self.groupings = groupings.get_groups()
+        
+        for i in self.groupings:
+##            assert i in ['elements', 'vitamins', 'energy', 'sugars',
+##                         'amino_acids', 'other', 'composition']
+            if i in ['elements', 'vitamins', 'energy', 'sugars', 'amino_acids',
+                     'other', 'composition']:
+                pass
+            else:
+                print "WHATS HAPPENING HERE???: ", i
+        if 'elements' in self.groupings:
             self.elements = {'Sodium, Na': None, 'Phosphorus, P': None,
                               'Manganese, Mn': None, 'Iron, Fe': None,
                               'Potassium, K': None, 'Fluoride, F': None,
                               'Selenium, Se': None, 'Magnesium, Mg': None,
                               'Zinc, Zn': None, 'Copper, Cu': None,
                               'Calcium, Ca': None}
-        if 'vitamins' in groupings:
+        if 'vitamins' in self.groupings:
             self.vitamins = {'Niacin': None, 'Menaquinone-4': None, 'Thiamin': None,
                              'Folate, food': None, 'Vitamin B-6': None,
                              'Tocopherol, gamma': None, 'Carotene, beta': None,
@@ -98,13 +107,13 @@ class Food(object):
                              'Choline, total': None,
                              'Vitamin K (phylloquinone)': None,
                              'Vitamin D (D2 + D3)': None, 'Folate, DFE': None}
-        if 'energy' in groupings:
+        if 'energy' in self.groupings:
             self.energy = {'Energy': None}
-        if 'sugars' in groupings:
+        if 'sugars' in self.groupings:
             self.sugars = {'Galactose': None, 'Starch': None, 'Lactose': None,
                            'Sucrose': None, 'Maltose': None, 'Fructose': None,
                            'Glucose (dextrose)': None}
-        if 'amino_acids' in groupings:
+        if 'amino_acids' in self.groupings:
             self.amino_acids = {'Alcohol, ethyl': None, 'Stigmasterol': None,
                                 'Fatty acids, total trans-monoenoic': None,
                                 'Theobromine': None, 'Caffeine': None,
@@ -117,7 +126,7 @@ class Food(object):
                                 'Ash': None,
                                 'Fatty acids, total polyunsaturated': None,
                                 'Phytosterols': None}
-        if 'other' in groupings:
+        if 'other' in self.groupings:
             self.other = {'Alcohol, ethyl': None, 'Stigmasterol': None,
                           'Fatty acids, total trans-monoenoic': None,
                           'Theobromine': None, 'Caffeine': None,
@@ -129,7 +138,7 @@ class Food(object):
                           'Campesterol': None, 'Cholesterol': None, 'Ash': None,
                           'Fatty acids, total polyunsaturated': None,
                           'Phytosterols': None}
-        if 'composition' in groupings:
+        if 'composition' in self.groupings:
             self.composition = {'Fiber, total dietary': None,
                                 'Adjusted Protein': None, 'Water': None,
                                 'Total lipid (fat)': None, 'Protein': None,
@@ -137,50 +146,79 @@ class Food(object):
                                 'Sugars, total': None}
         if json_obj is not None:
             self.populate_from_json(json_obj)
-            
+    def _portion_helper(self, json_object):
+        """ Takes a json_object, writes the smallest serving size (in grams) and
+            unit of measurement to memory.
+            Returns nothing.
+            """
+        portions = sorted(json_object['portions'], key=lambda k: k['grams'])
+        if len(portions) == 0:
+            self.unit = "100g"
+            self.serving_size = 100
+        else:
+            smallest = portions[0]
+            self.unit = smallest['unit']
+            self.serving_size = smallest['grams']
     def populate_from_json(self, json_object):
         ## **** THIS IS AT LIKE 40% FUNCTIONALITY ****
-        ## memasurements not in g, mg or mcg are being ignored!!!
+        ##
+        ## ALL VALUES COMING IN FROM JSON ARE PER 100g SO THEY MUST BE SCALED
+        ## TO THE SERVING SIZE *AFTER* BEING CONVERTED TO MG!!!
         """ This takes a json_object and populates the active groups from it
             """
         assert type(json_object) is dict
-        ## all values must be converted to mg!!!
         self.name = json_object['description']
-        ## may need a lookup table for for IU to mg conversion for different
-        ## vitamins and elements
-        converter = {'g':1000., 'mg': 1., 'mcg': (1/1000.)}
+        self._portion_helper(json_object)
+        serv_size_conv_fact = self.serving_size/100. # json data is per 100g
+        converter = {'g':1000., 'mg': 1., 'mcg': (1/1000.)} # normalize to mg
+        serving_size = json_object['portions']
         if 'elements' in self.groupings:
             json_elements = [x for x
                              in json_object['nutrients']
                              if x['group'] == 'Elements']
             for e in json_elements:
                 if e['units'] in ['g', 'mg', 'mcg']:
-                    self.elements[e['description']] = e['value']*converter[e['units']]
-##                if e['units'] == 'mg':
-##                    self.elements[e['description']] = e['value']
-##                elif e['units'] == 'mcg':
-##                    self.elements[e['description']] = e['value']*1000.
-##                elif e['units'] == 'g':
-##                    self.elements[e['description']] = e['value']/1000.
+                    self.elements[e['description']] = \
+                                                e['value']*\
+                                                converter[e['units']]*\
+                                                serv_size_conv_fact
                 else:
                      if debugging: print "element", e['units'], e['description']
         if 'vitamins' in self.groupings:
             json_vitamins = [x for x
                              in json_object['nutrients']
                              if x['group'] == 'Vitamins']
-            for e in json_vitamins:
-                if e['units'] == 'mg':
-                    self.vitamins[e['description']] = e['value']
-                elif e['units'] == 'mcg':
-                    self.vitamins[e['description']] = e['value']/1000.
-                elif e['units'] == 'g':
-                    self.vitamins[e['description']] = e['value']*1000.
+            for vit in json_vitamins:
+                if vit['units'] in ['g', 'mg', 'mcg']:
+                    self.vitamins[vit['description']] = \
+                                                vit['value']*\
+                                                converter[vit['units']]*\
+                                                serv_size_conv_fact
                 else:
-                    if debugging: print "vitamin", e['units'], e['description']
+                    if debugging: print "vitamin", vit['units'],\
+                                        vit['description']
+
+        ## may need a lookup table for IU to mg conversion for different
+        ## vitamins and elements
+        ## measurements not in g, mg or mcg are being ignored!!!
+                    
     def d(self, string):
         ## d is for dictionary
         ## this gets the __dict__'s out of the algorithm layer
         return self.__dict__[string]
+    def display(self):
+        print ''
+        print 'Food Name:'
+        print self.name
+        print ''
+        print 'Nutritional Groupings: '
+        print self.groupings
+        print ''
+    def display_value(self, name):
+        for group in self.groupings:
+            for item_name in self.__dict__[group]:
+                if item_name == name:
+                    print "Name:", name, " Value: ", self.__dict__[group][name]
     def get_name(self):
         return self.name
     def set_name(self, name):
@@ -385,11 +423,12 @@ def display_nutrients(food, min_meal, max_meal):
     """ Displays the nutritional contents of 3 meals.
         """
     ## you can put any three meals in here and they'll print in order
+    #print 'display nutrients method: food:', food
     print ''
     print 'Food/Meal Object: ', food.name
-    for g in food.groupings:
+    for g in food.groupings: # nutrient groupings (elements, vitamins, etc)
         print '-------------------------------------------------------------------'
-        print 'Group:', g
+        print 'Group:', g   #, 'food.d(g):', food.d(g)
         print "%-35s %-10s %-10s %-10s" % ('Name', 'Meal', 'Min', 'Max')
         print '-------------------------------------------------------------------'
         for key in food.d(g):
@@ -398,9 +437,18 @@ def display_nutrients(food, min_meal, max_meal):
                                                min_meal.d(g)[key],
                                                max_meal.d(g)[key])
 
+def display_info(food):
+    d_min = make_daily_min(food.groupings)
+    d_max = make_daily_max(food.groupings)
+    display_nutrients(food, d_min, d_max)
+
+def info(name):
+    food = get_food_with_name(name)
+    display_info(food)
+    print 'weight:', food.serving_size, 'grams'
 
 #############################################################################
-###################### some data and benchmarks #############################
+################## some data and (nuritional) benchmarks ####################
 #############################################################################
 
 #IU_conversions:::: 'Vitamin A':  0.3 mcg retinol, 0.6 mcg beta-carotene
@@ -573,7 +621,7 @@ def make_daily_max(groupings):
 ## JSON filters (these filter foods *before* they're mapped into the custom
 ##               Food objects)
 
-class Group_Filter(object):
+class Food_Group_Filter(object):
     def __init__(self, name_list=None):
         ## to use initialize with a list of some or all of the keys from
         ## the dictionary below
@@ -592,11 +640,17 @@ class Group_Filter(object):
         if name_list is not None:
             for name in name_list:
                 self.d[name] = 1
+        else:
+            # default to all groups included if no groups supplied
+            for k in self.d:
+                self.d[k] = 1
     def check(self, group):
         if self.d[group] == 1:
             return True
         else:
             return False
+    def get_groups(self):
+        return [x for x in self.d if self.d[x] == 1]
 
 class Name_Filter(object):
     def __init__(self, name_list=None):
@@ -605,7 +659,10 @@ class Name_Filter(object):
         else:
             self.n = []
     def check(self, name):
-        if name in self.n:
+        # if no names supplies filter defaults to True
+        if self.n == []:
+            return True
+        elif name in self.n:
             return True
         else:
             return False
@@ -634,13 +691,13 @@ the_groups = ['Dairy and Egg Products', 'Spices and Herbs', 'Baby Foods',\
               'Beef Products', 'Beverages', 'Finfish and Shellfish Products',\
               'Legumes and Legume Products', 'Lamb, Veal, and Game Products',\
               'Baked Products', 'Snacks', 'Sweets', 'Cereal Grains and Pasta',\
-              'Fast Foods', 'Meals, Entrees, and Sidedishes','Ethnic Foods',\
+              'Fast Foods', 'Meals, Entrees, and Sidedishes', 'Ethnic Foods',\
               'Restaurant Foods']
 
 ## a filter for groups (0 for discard, 1 for keep):
 ## ** this is used for filtering JSON objects before they get mapped in **
 
-basic_filter = Group_Filter(['Fats and Oils', 'Soups, Sauces, and Gravies',
+basic_filter = Food_Group_Filter(['Fats and Oils', 'Soups, Sauces, and Gravies',
                               'Breakfast Cereals', 'Fruits and Fruit Juices',
                               'Vegetables and Vegetable Products',
                               'Nut and Seed Products', 'Beverages',
@@ -648,10 +705,11 @@ basic_filter = Group_Filter(['Fats and Oils', 'Soups, Sauces, and Gravies',
                               'Snacks', 'Sweets', 'Cereal Grains and Pasta',
                               'Meals, Entrees, and Sidedishes'])
 
+all_groups_filter = Food_Group_Filter(the_groups)
         
-veggie_filter = Group_Filter(['Vegetables and Vegetable Products',
+veggie_filter = Food_Group_Filter(['Vegetables and Vegetable Products',
                               'Nut and Seed Products'])
-veggie_beef_filter = Group_Filter(['Vegetables and Vegetable Products',
+veggie_beef_filter = Food_Group_Filter(['Vegetables and Vegetable Products',
                                    'Nut and Seed Products',
                                    'Beef Products'])
                                    
@@ -672,7 +730,7 @@ def get_food_from_group_by_name(group_filter, name):
         single corresponding object.
         """
     ## this should be optimized later (should terminate when object is found)
-    assert type(group_filter) is Group_Filter and type(name) is str
+    assert type(group_filter) is Food_Group_Filter and type(name) is str
     return get_foods_by_group_and_name(group_filter, Name_Filter([name]))[0]
 
 
@@ -705,150 +763,130 @@ def get_filtered_object_names(the_filter):
             food_names.append(jdict["description"])
     return food_names
 
-def get_foods_by_group_and_name(group_filter, name_filter):
+def get_objects_by_group_and_name(group_filter, name_filter):
     """ Steps through the JSON database and keeps objects that satisfy the
         group and name filters' constraints.
         """
-    assert type(group_filter) is Group_Filter and \
+    global db_tuple
+    assert type(group_filter) is Food_Group_Filter and \
            type(name_filter) is Name_Filter
     objects = []
+    
     for jdict in db_tuple:
         if group_filter.check(jdict['group']) and\
-           name_filter.check(new_obj['description']):
+           name_filter.check(jdict['description']):
             objects.append(jdict)
+    return objects
+
+def get_object_by_name(name):
+    """ Steps through the JSON database and returns the first object that meets
+        the name criteria.
+        """
+    for jdict in db_tuple:
+        if name == jdict['description']:
+            return jdict
+    return False
 
 
 #############################################################################
 ######################## From JSON to Food objects ##########################
 #############################################################################
 
-def get_food_objects(group_filter, name_filter, nutrient_group_filter):
+def get_food_objects(food_group_filter=Food_Group_Filter(),
+                     name_filter=Name_Filter(),
+                     nutrient_group_filter=['elements', 'vitamins']):
     """ Given group, name and nutrient group filters, finds corresponding
         objects from the JSON database and maps them into Food objects,
         returns a list of Food objects.
         """
-    obj_list = get_foods_by_group_and_name(group_filter, name_filter)
+    obj_list = get_objects_by_group_and_name(food_group_filter, name_filter)
     return [Food(nutrient_group_filter, obj) for obj in obj_list]
 
 def get_foods_for_objects(objects, nutrient_groups):
     return [Food(nutrient_groups, obj) for obj in objects]
 
+def get_food_with_name(food_name, nutrient_groups=None):
+    if nutrient_groups == None:
+        nutrient_groups = ['elements', 'vitamins']
+    the_object = get_object_by_name(food_name)
+    if the_object is not False:
+        return Food(nutrient_groups, the_object)
+    else:
+        return False
+
 #############################################################################
 ############################### FINDING MEALS ###############################
 #############################################################################
 
-def brute_force_alg(min_meal, max_meal, servings, food_groups,
-                    nutrient_groups, names=None):
-    ## TO DO...
-    if names is not None:
-        objects = get_foods_by_group_and_name(groups, names)
-    else:
-        objects = get_partial_object_list(groups, 9000)
-
-    def _dynamic_helper(self, object_list, memo=None):
-        if memo is None:
-            memo = []
-
-    ## TO DO...
-    pass
-
 def greedy_alg(min_meal, max_meal, servings, food_groups, nutrient_groups,
-               comparator, seed_name, names=None):
-    """ 
-        min_meal: benchmark Meal object
-        max_meal: benchmark Meal object
-        servings: integer
-        food_groups: list, used to filter from the JSON database
-        nutrient_groups: list, used as an argument for Food and Meal objects
-        comparator: procedure, comparator used to measure objects
-        seed_name: name of the first food used as a seed
-        names: optional list of food names, filters the JSON objects
-        """
-    if names is not None:
-        objects = get_foods_by_group_and_name(food_groups, names)
-    else:
-        objects = get_partial_object_list(food_groups, 9000)
-    first_food = None
-    for obj in objects:
-        if obj['description'] == seed_name:
-            first_food = Food(nutrient_groups, obj)
-            break
-    if first_food == None: raise Exception
-    current_foods = [first_food]
-    tries = [first_food]
-    current_meal = Meal(nutrient_groups, first_food)
-    def _next_food_helper(current_meal, min_meal, objects, nutrient_groups,
-                          comparator):
-        next_food = Food(nutrient_groups, objects[0])
-        next_food_meal_score = comparator(min_meal,
-                                          current_meal.with_(next_food))
-        for obj in objects:
-            obj_as_food = Food(nutrient_groups,  obj)
-            
-            obj_meal = current_meal.with_(obj_as_food)
-            obj_meal_score = comparator(min_meal, obj_meal)
-            if obj_meal_score < next_food_meal_score:
-                next_food = obj_as_food
-                next_food_meal_score = obj_meal_score
-        return next_food
-    while len(current_foods) < servings:        
-        if current_meal.greater_than(min_meal):
-            return current_meal
-        current_foods.append(_next_food_helper(current_meal, min_meal,
-                                               objects, nutrient_groups,
-                                               comparator))
-        #tries.append(obj_as_food)
-        current_meal.add(current_foods[-1])
-        #display_nutrients(current_meal, daily_min, daily_max)
+                   comparator, seed_name, names=None):
+        """ 
+            min_meal: benchmark Meal object
+            max_meal: benchmark Meal object
+            servings: integer
+            food_groups: list, used to filter from the JSON database
+            nutrient_groups: list, used as an argument for Food and Meal objects
+            comparator: procedure, comparator used to measure objects
+            seed_name: name of the first food used as a seed
+            names: optional list of food names, filters the JSON objects
+            """
+        print 'Greedy Algorithm Beginning, comparator is:', comparator.__name__
+        foods = get_food_objects(food_groups, Name_Filter(names),
+                                 nutrient_groups)
+        first_food = get_food_with_name(seed_name, nutrient_groups)
+        current_foods = [first_food]
+        #tries = [first_food]
+        current_meal = Meal(nutrient_groups, first_food)
+        counter = [0] # putting the counter in a list sidesteps namespace
+                      # issues (nonlocal not implemented until Python 3.0)
+        def _next_food_helper(current_meal, min_meal, max_meal, foods,
+                              nutrient_groups, comparator):
+            """
+                current_meal: the meal so far
+                min_meal, max_meal: the benchmark meals
+                foods: list of Food objects from above
+                nutrient_groups: i.e. ['vitamins', 'elements']
+                comparator: function that takes a meal, the min_meal and an
+                            optional argument
+                            returns a unitless number, smaller = better
+                """
+            next_food = foods[0] # seed
+            next_food_meal_score = comparator(min_meal,
+                                              current_meal.with_(next_food),
+                                              counter)
+            for food in foods:
+                prospective_meal_score = comparator(min_meal,
+                                                    current_meal.with_(food),
+                                                    counter)
+                if not max_meal.greater_than(current_meal.with_(food)):
+                    continue  ## where is the best place for this check???
+                if prospective_meal_score < next_food_meal_score:
+                    next_food = food
+                    next_food_meal_score = prospective_meal_score
+            counter[0] += 1
+            #print 'next food is:', next_food.name
+            return next_food
         
-    return current_meal#, tries
-
-def test_greedy_finish_line():
-    groupings = ['elements', 'vitamins']
-    d_min = make_daily_min(groupings)
-    d_max = make_daily_max(groupings)
-    the_meal = greedy_alg(d_min, d_max, 250, veggie_filter, groupings,
-                          finish_line, 'Alfalfa seeds, sprouted, raw')
-    display_nutrients(the_meal, d_min, d_max)
-    print "Meets minimum requirements? ", the_meal.greater_than(d_min)
-    print "Meets maximum requirements? ", d_max.greater_than(the_meal) 
-    return the_meal
-
-def test_greedy_balance():
-    groupings = ['elements', 'vitamins']
-    d_min = make_daily_min(groupings)
-    d_max = make_daily_max(groupings)
-    the_meal = greedy_alg(d_min, d_max, 250, veggie_beef_filter, groupings, balance,
-                          'Alfalfa seeds, sprouted, raw')
-    display_nutrients(the_meal, d_min, d_max)
-    print "Meets minimum requirements? ", the_meal.greater_than(d_min)
-    print "Meets maximum requirements? ", d_max.greater_than(the_meal) 
-    return the_meal
-            
-def run_walk_greedy_alg():
-    """ Uses the finish_line() comparator until half of the nutrients have met
-        their min constraints, then switches to the balance() comparator.
-        """
-    pass
-
-def balanced_walk_greedy_alg():
-    """ Uses the finish_line() comparator unless the nutritional balance is
-        too unbalanced, then uses balance() to balance the situation before
-        switching back to finish_line()
-        """
-    pass
-    
-#### algorithms
-##    - brute force tree search
-##    - dynamic tree search (memoization)
-##    - pick one add one (greedy)
-##        - measured by:
-##            - closeness to all above min values
-##            - balance 
+        while len(current_foods) < servings:
+            if not max_meal.greater_than(current_meal):
+                print "Dead end reached in search algorithm, one or more"
+                print "maximum constraints have been violated"
+                print "Current foods: ", [x.name for x in current_foods]
+                return current_meal
+            if current_meal.greater_than(min_meal):
+                return current_meal
+            current_foods.append(_next_food_helper(current_meal, min_meal,
+                                                   max_meal, foods,
+                                                   nutrient_groups, comparator))
+            current_meal.add(current_foods[-1])
+        return current_meal
 
 
 ## COMPARATORS (return a unitless number used to compare meals)
-def finish_line(min_meal, meal):
+    ## the 'optional' argument can be used to pass whatever info may be needed
+    ## it may be nice to include a lambda function with each comparator that
+    ## will automatically gather whatever info that comparator may need
+def finish_line(min_meal, meal, optional=None):
     """ This algorithm takes a meal and a min_meal (benchmark meal) and finds
         the total distance between the meal and meeting its min constraints.
         The bigger the distance the farther from the min-meal.
@@ -863,7 +901,7 @@ def finish_line(min_meal, meal):
                                   meal.d(group)[key]) / min_meal.d(group)[key])
     return distance
 
-def balance(min_meal, meal):
+def balance(min_meal, meal, optional=None):
     """ This algorithm focuses on the overall balance of a meal, the more
         evenly distributed the nutrients, the lower the b_factor.
         If every nutrient is at 80% of it's min value the b_factor would be
@@ -885,12 +923,69 @@ def balance(min_meal, meal):
         for key in meal.d(group):
             if meal.d(group)[key] is not None and\
                    min_meal.d(group)[key] is not None: ## temporary
-                b_factor += abs(average -
-                                (meal.d(group)[key] / min_meal.d(group)[key]))
+                #b_factor += abs(average - (meal.d(group)[key] / min_meal.d(group)[key]))
+                if meal.d(group)[key] < min_meal.d(group)[key]:
+                    b_factor += 4 * abs(average - (meal.d(group)[key] / min_meal.d(group)[key]))
+                else:
+                    b_factor += abs(average - (meal.d(group)[key] / min_meal.d(group)[key]))
     return b_factor
     
+def alternating_finish_line_balance(min_meal, meal, optional=None):
+    if optional % 2 == 0:
+        return balance(min_meal, meal, optional)
+    else:
+        return finish_line(min_meal, meal, optional)
 
 
 
+def test_greedy_finish_line(seed='Alfalfa seeds, sprouted, raw'):
+    groupings = ['elements', 'vitamins']
+    d_min = make_daily_min(groupings)
+    d_max = make_daily_max(groupings)
+    the_meal = greedy_alg(d_min, d_max, 250, veggie_beef_filter,
+                          groupings, finish_line,
+                          seed)
+    display_nutrients(the_meal, d_min, d_max)
+    print "Meets minimum requirements? ", the_meal.greater_than(d_min)
+    print "Meets maximum requirements? ", d_max.greater_than(the_meal) 
+    return the_meal
 
+def test_greedy_balance(seed='Alfalfa seeds, sprouted, raw'):
+    ## this takes a very long time to run and doesn't return a valid solution
+    ## for 1000 foods it still doesn't reach all minimum values
+    ## perhaps some sort of weighting scheme will help?
+    groupings = ['elements', 'vitamins']
+    d_min = make_daily_min(groupings)
+    d_max = make_daily_max(groupings)
+    the_meal = greedy_alg(d_min, d_max, 10000, veggie_beef_filter,
+                          groupings, balance,
+                          seed)
+    display_nutrients(the_meal, d_min, d_max)
+    print "Meets minimum requirements? ", the_meal.greater_than(d_min)
+    print "Meets maximum requirements? ", d_max.greater_than(the_meal) 
+    return the_meal
 
+def test_greedy_alternating(seed='Alfalfa seeds, sprouted, raw'):
+    groupings = ['elements', 'vitamins']
+    d_min = make_daily_min(groupings)
+    d_max = make_daily_max(groupings)
+    the_meal = greedy_alg(d_min, d_max, 250, veggie_beef_filter,
+                          groupings, alternating_finish_line_balance,
+                          seed)
+    display_nutrients(the_meal, d_min, d_max)
+    print "Meets minimum requirements? ", the_meal.greater_than(d_min)
+    print "Meets maximum requirements? ", d_max.greater_than(the_meal) 
+    return the_meal
+            
+def run_walk_greedy_alg():
+    """ Uses the finish_line() comparator until half of the nutrients have met
+        their min constraints, then switches to the balance() comparator.
+        """
+    pass
+
+def balanced_walk_greedy_alg():
+    """ Uses the finish_line() comparator unless the nutritional balance is
+        too unbalanced, then uses balance() to balance the situation before
+        switching back to finish_line()
+        """
+    pass
