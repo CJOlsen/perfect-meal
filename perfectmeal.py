@@ -18,7 +18,7 @@
 
 ## ************************************************************************
 
-####Levels of The Program:
+####Levels of The Program (this file):
 ####	Class Structure (data types)
 ####		Food(object)
 ####		Meal(Food)
@@ -40,6 +40,10 @@
 ####		brute force (to-do)
 ####		Greedy algorithms
 ####			based on Comparators (balance returns a "valid" result)
+####
+####    GUI Specific Methods
+####            get_fields()
+####
 
 #############################################################################
 ##################### class structure (data types) ##########################
@@ -219,6 +223,8 @@ class Food(object):
             for item_name in self.__dict__[group]:
                 if item_name == name:
                     print "Name:", name, " Value: ", self.__dict__[group][name]
+    def get_val(self, group, item):
+        return self.__dict__[group][item]
     def get_name(self):
         return self.name
     def set_name(self, name):
@@ -787,6 +793,16 @@ def get_object_by_name(name):
             return jdict
     return False
 
+import re
+def search_by_name(name):
+    matches = []
+    for jdict in db_tuple:
+        if re.search(name.lower(),
+                      jdict['description'].lower()) is not None:
+            matches.append(jdict['description'])
+    return matches
+ 
+
 
 #############################################################################
 ######################## From JSON to Food objects ##########################
@@ -802,7 +818,7 @@ def get_food_objects(food_group_filter=Food_Group_Filter(),
     obj_list = get_objects_by_group_and_name(food_group_filter, name_filter)
     return [Food(nutrient_group_filter, obj) for obj in obj_list]
 
-def get_foods_for_objects(objects, nutrient_groups):
+def get_foods_for_objects(objects, nutrient_groups=['vitamins', 'elements']):
     return [Food(nutrient_groups, obj) for obj in objects]
 
 def get_food_with_name(food_name, nutrient_groups=None):
@@ -989,3 +1005,38 @@ def balanced_walk_greedy_alg():
         switching back to finish_line()
         """
     pass
+
+
+#############################################################################
+############################## GUI Specific #################################
+#############################################################################
+
+def get_fields(groupings=['elements', 'vitamins']):
+    
+    food = Food(Food_Group_Filter(groupings))
+    fields = dict()
+    for group in food.groupings:
+        fields[group] = food.__dict__[group].keys()
+    return fields
+
+def get_food(name, groupings=['elements', 'vitamins']):
+    """ Takes a food name (string) and returns the corresponding Food object.
+        """
+    return get_food_with_name(name)
+
+def get_meal(name_list, groupings=['elements', 'vitamins']):
+    """ Takes a list of food names (strings) and returns a Meal object of
+        those foods.
+        """
+    meal = Meal(groupings)
+    for name in name_list:
+        food = get_food_with_name(name)
+        meal.add(food)
+    return meal
+
+def get_benchmarks(groupings=['elements', 'vitamins']):
+    """ Returns a two-tuple of the minimum and maximum daily allowances
+        """
+    return (make_daily_min(groupings),
+            make_daily_max(groupings))
+    
