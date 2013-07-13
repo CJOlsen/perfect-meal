@@ -54,43 +54,40 @@ debugging = False
 import copy
 
 class Food(object):
-    def __init__(self, groupings, json_obj=None, name=None):
+    def __init__(self, nutritional_groupings, json_obj=None, name=None):
         """ The Food object has standard attributes for:
             -name: name of the food, optional
-            -groupings: a subset of ['elements', 'vitamins', 'energy', 'sugars',
+            -nutritional_groupings: a subset of ['elements', 'vitamins', 'energy', 'sugars',
                                      'amino_acids', 'other', 'composition']
                        used to choose which dictionaries to initialize
-            -the seven dictionaries listed in the groupings list
+            -the seven dictionaries listed in the nutritional_groupings list
             
             If a json_obj is included the dictionaries will be populated with
-            the data (as filtered by the groupings list)
+            the data (as filtered by the nutritional_groupings list)
             """
-        ## For comparisons to work the groupings list will need to be the
+        ## For comparisons to work the nutritional_groupings list will need to be the
         ## same for all Foods being used (one *could* add try/excepts to
         ## the "add" method of the Meal class to "fix" this)
         self.name = name
-        assert type(groupings) is list or type(groupings) is Food_Group_Filter
-        if type(groupings) is list:
-            self.groupings = groupings
-        else:
-            self.groupings = groupings.get_groups()
+        assert type(nutritional_groupings) is list
+        self.nutritional_groupings = nutritional_groupings
         
-        for i in self.groupings:
-##            assert i in ['elements', 'vitamins', 'energy', 'sugars',
-##                         'amino_acids', 'other', 'composition']
-            if i in ['elements', 'vitamins', 'energy', 'sugars', 'amino_acids',
-                     'other', 'composition']:
-                pass
-            else:
-                print "WHATS HAPPENING HERE???: ", i
-        if 'elements' in self.groupings:
+        for i in self.nutritional_groupings:
+            assert i in ['elements', 'vitamins', 'energy', 'sugars',
+                         'amino_acids', 'other', 'composition']
+##            if i in ['elements', 'vitamins', 'energy', 'sugars', 'amino_acids',
+##                     'other', 'composition']:
+##                pass
+##            else:
+##                print "WHATS HAPPENING HERE???: ", i
+        if 'elements' in self.nutritional_groupings:
             self.elements = {'Sodium, Na': None, 'Phosphorus, P': None,
                               'Manganese, Mn': None, 'Iron, Fe': None,
                               'Potassium, K': None, 'Fluoride, F': None,
                               'Selenium, Se': None, 'Magnesium, Mg': None,
                               'Zinc, Zn': None, 'Copper, Cu': None,
                               'Calcium, Ca': None}
-        if 'vitamins' in self.groupings:
+        if 'vitamins' in self.nutritional_groupings:
             self.vitamins = {'Niacin': None, 'Menaquinone-4': None, 'Thiamin': None,
                              'Folate, food': None, 'Vitamin B-6': None,
                              'Tocopherol, gamma': None, 'Carotene, beta': None,
@@ -111,13 +108,13 @@ class Food(object):
                              'Choline, total': None,
                              'Vitamin K (phylloquinone)': None,
                              'Vitamin D (D2 + D3)': None, 'Folate, DFE': None}
-        if 'energy' in self.groupings:
+        if 'energy' in self.nutritional_groupings:
             self.energy = {'Energy': None}
-        if 'sugars' in self.groupings:
+        if 'sugars' in self.nutritional_groupings:
             self.sugars = {'Galactose': None, 'Starch': None, 'Lactose': None,
                            'Sucrose': None, 'Maltose': None, 'Fructose': None,
                            'Glucose (dextrose)': None}
-        if 'amino_acids' in self.groupings:
+        if 'amino_acids' in self.nutritional_groupings:
             self.amino_acids = {'Alcohol, ethyl': None, 'Stigmasterol': None,
                                 'Fatty acids, total trans-monoenoic': None,
                                 'Theobromine': None, 'Caffeine': None,
@@ -130,7 +127,7 @@ class Food(object):
                                 'Ash': None,
                                 'Fatty acids, total polyunsaturated': None,
                                 'Phytosterols': None}
-        if 'other' in self.groupings:
+        if 'other' in self.nutritional_groupings:
             self.other = {'Alcohol, ethyl': None, 'Stigmasterol': None,
                           'Fatty acids, total trans-monoenoic': None,
                           'Theobromine': None, 'Caffeine': None,
@@ -142,7 +139,7 @@ class Food(object):
                           'Campesterol': None, 'Cholesterol': None, 'Ash': None,
                           'Fatty acids, total polyunsaturated': None,
                           'Phytosterols': None}
-        if 'composition' in self.groupings:
+        if 'composition' in self.nutritional_groupings:
             self.composition = {'Fiber, total dietary': None,
                                 'Adjusted Protein': None, 'Water': None,
                                 'Total lipid (fat)': None, 'Protein': None,
@@ -176,7 +173,7 @@ class Food(object):
         serv_size_conv_fact = self.serving_size/100. # json data is per 100g
         converter = {'g':1000., 'mg': 1., 'mcg': (1/1000.)} # normalize to mg
         serving_size = json_object['portions']
-        if 'elements' in self.groupings:
+        if 'elements' in self.nutritional_groupings:
             json_elements = [x for x
                              in json_object['nutrients']
                              if x['group'] == 'Elements']
@@ -188,7 +185,7 @@ class Food(object):
                                                 serv_size_conv_fact
                 else:
                      if debugging: print "element", e['units'], e['description']
-        if 'vitamins' in self.groupings:
+        if 'vitamins' in self.nutritional_groupings:
             json_vitamins = [x for x
                              in json_object['nutrients']
                              if x['group'] == 'Vitamins']
@@ -216,10 +213,10 @@ class Food(object):
         print self.name
         print ''
         print 'Nutritional Groupings: '
-        print self.groupings
+        print self.nutritional_groupings
         print ''
     def display_value(self, name):
-        for group in self.groupings:
+        for group in self.nutritional_groupings:
             for item_name in self.__dict__[group]:
                 if item_name == name:
                     print "Name:", name, " Value: ", self.__dict__[group][name]
@@ -252,8 +249,8 @@ class Meal(Food):
     ## foods contained in the meal
     ## self.foods is optional since benchmark meals (daily min and max, etc)
     ## are also of this class
-    def __init__(self, grouping, food=None):
-        Food.__init__(self, grouping)
+    def __init__(self, nutritional_groupings, food=None):
+        Food.__init__(self, nutritional_groupings)
         self.foods = []
         if food is not None:
             self.add(food)
@@ -273,31 +270,31 @@ class Meal(Food):
         ## this can be looped using __dict__'s but it isn't very clear
         ## variable name "food" is unclear, maybe change
         self.foods.append(food.get_name())
-        if 'elements' in self.groupings:
+        if 'elements' in self.nutritional_groupings:
             for key in self.elements:
                 #print 'ele before add', self.elements[key]
                 self.elements[key] = self._add_helper(self.elements[key],
                                                      food.elements[key])
                 #print 'ele after add', self.elements[key]
-        if 'vitamins' in self.groupings:
+        if 'vitamins' in self.nutritional_groupings:
             for key in self.vitamins:
                 #print 'vit before add', self.vitamins[key]
                 self.vitamins[key] = self._add_helper(self.vitamins[key],
                                                      food.vitamins[key])
                 #print 'vit after add', self.vitamins[key]
-        if 'energy' in self.groupings:
+        if 'energy' in self.nutritional_groupings:
             for key in self.energy:
                 self.energy[key] = self._add_helper(self.energy[key],
                                                    food.energy[key])
-        if 'sugars' in self.groupings:
+        if 'sugars' in self.nutritional_groupings:
             for key in self.sugars:
                 self.sugars[key] = self._add_helper(self.sugars[key],
                                                    food.sugars[key])
-        if 'amino_acids' in self.groupings:
+        if 'amino_acids' in self.nutritional_groupings:
             for key in self.amino_acids:
                 self.amino_acids[key] = self._add_helper(self.amino_acids[key],
                                                         food.amino_acids[key])
-        if 'other' in self.groupings:
+        if 'other' in self.nutritional_groupings:
             for key in self.other:
                 self.other[key] = self._add_helper(self.other[key],
                                                   food.other[key])
@@ -326,27 +323,27 @@ class Meal(Food):
                 return first - second
     def _sub_diff_helper(self, food):
         # used by the subtract() and difference() methods
-        if 'elements' in self.groupings:
+        if 'elements' in self.nutritional_groupings:
             for key in self.elements:
                self.elements[key] = self._subtract_helper(self.elements[key],
                                                           food.elements[key])
-        if 'vitamins' in self.groupings:
+        if 'vitamins' in self.nutritional_groupings:
             for key in self.vitamins:
                self.vitamins[key] = self._subtract_helper(self.vitamins[key],
                                                           food.vitamins[key])
-        if 'energy' in self.groupings:
+        if 'energy' in self.nutritional_groupings:
             for key in self.energy:
                self.energy[key] = self._subtract_helper(self.energy[key],
                                                         food.energy[key])
-        if 'sugars' in self.groupings:
+        if 'sugars' in self.nutritional_groupings:
             for key in self.sugars:
                self.sugars[key] = self._subtract_helper(self.sugars[key],
                                                         food.sugars[key])
-        if 'amino_acids' in self.groupings:
+        if 'amino_acids' in self.nutritional_groupings:
             for key in self.amino_acids:
                self.amino_acids[key] = self._subtract_helper(self.amino_acids[key],
                                                              food.amino_acids[key])
-        if 'other' in self.groupings:
+        if 'other' in self.nutritional_groupings:
             for key in self.other:
                self.other[key] = self._subtract_helper(self.other[key],
                                                        food.other[key])
@@ -375,34 +372,35 @@ class Meal(Food):
             False.
             """
         assert type(food) in [Food, Meal]
-        assert sorted(self.groupings) == sorted(food.groupings)
+        assert sorted(self.nutritional_groupings) == \
+               sorted(food.nutritional_groupings)
         ## this also could use a looping construct
         ## --check for logic error possibilities with None's--
-        if 'elements' in self.groupings:
+        if 'elements' in self.nutritional_groupings:
             for key in self.elements:
                 if self.elements[key] < food.elements[key]:
                     if self.elements[key] is not None and\
                        food.elements[key] is not None: ## throw out None's
                         return False
-        if 'vitamins' in self.groupings:
+        if 'vitamins' in self.nutritional_groupings:
             for key in self.vitamins:
                 if self.vitamins[key] < food.vitamins[key]:
                     if self.vitamins[key] is not None and\
                        food.vitamins[key] is not None:
                         return False
-        if 'energy' in self.groupings:
+        if 'energy' in self.nutritional_groupings:
             for key in self.energy:
                 if self.energy[key] < food.energy[key]:
                     return False
-        if 'sugars' in self.groupings:
+        if 'sugars' in self.nutritional_groupings:
             for key in self.sugars:
                 if self.sugars[key] < food.sugars[key]:
                     return False
-        if 'amino_acids' in self.groupings:
+        if 'amino_acids' in self.nutritional_groupings:
             for key in self.amino_acids:
                 if self.elements[key] < food.elements[key]:
                     return False
-        if 'other' in self.groupings:
+        if 'other' in self.nutritional_groupings:
             for key in self.other:
                 if self.other[key] < food.other[key]:
                     return False
@@ -432,7 +430,7 @@ def display_nutrients(food, min_meal, max_meal):
     #print 'display nutrients method: food:', food
     print ''
     print 'Food/Meal Object: ', food.name
-    for g in food.groupings: # nutrient groupings (elements, vitamins, etc)
+    for g in food.nutritional_groupings: # nutrient groupings (elements, vitamins, etc)
         print '-------------------------------------------------------------------'
         print 'Group:', g   #, 'food.d(g):', food.d(g)
         print "%-35s %-10s %-10s %-10s" % ('Name', 'Meal', 'Min', 'Max')
@@ -444,8 +442,8 @@ def display_nutrients(food, min_meal, max_meal):
                                                max_meal.d(g)[key])
 
 def display_info(food):
-    d_min = make_daily_min(food.groupings)
-    d_max = make_daily_max(food.groupings)
+    d_min = make_daily_min(food.nutritional_groupings)
+    d_max = make_daily_max(food.nutritional_groupings)
     display_nutrients(food, d_min, d_max)
 
 def info(name):
@@ -1011,11 +1009,11 @@ def balanced_walk_greedy_alg():
 ############################## GUI Specific #################################
 #############################################################################
 
-def get_fields(groupings=['elements', 'vitamins']):
-    
-    food = Food(Food_Group_Filter(groupings))
+def get_fields(nutritional_groupings=['elements', 'vitamins']):
+    print 'get_fields groupings:', nutritional_groupings
+    food = Food(nutritional_groupings)
     fields = dict()
-    for group in food.groupings:
+    for group in food.nutritional_groupings:
         fields[group] = food.__dict__[group].keys()
     return fields
 
@@ -1034,9 +1032,9 @@ def get_meal(name_list, groupings=['elements', 'vitamins']):
         meal.add(food)
     return meal
 
-def get_benchmarks(groupings=['elements', 'vitamins']):
+def get_benchmarks(nutritional_groupings=['elements', 'vitamins']):
     """ Returns a two-tuple of the minimum and maximum daily allowances
         """
-    return (make_daily_min(groupings),
-            make_daily_max(groupings))
+    return (make_daily_min(nutritional_groupings),
+            make_daily_max(nutritional_groupings))
     
