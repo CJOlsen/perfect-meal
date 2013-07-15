@@ -52,6 +52,7 @@
 debugging = False
 
 import copy
+import string
 
 class Food(object):
     def __init__(self, nutritional_groupings, json_obj=None, name=None):
@@ -70,16 +71,10 @@ class Food(object):
         ## the "add" method of the Meal class to "fix" this)
         self.name = name
         assert type(nutritional_groupings) is list
-        self.nutritional_groupings = nutritional_groupings
-        
+        self.nutritional_groupings = nutritional_groupings     
         for i in self.nutritional_groupings:
             assert i in ['elements', 'vitamins', 'energy', 'sugars',
                          'amino_acids', 'other', 'composition']
-##            if i in ['elements', 'vitamins', 'energy', 'sugars', 'amino_acids',
-##                     'other', 'composition']:
-##                pass
-##            else:
-##                print "WHATS HAPPENING HERE???: ", i
         if 'elements' in self.nutritional_groupings:
             self.elements = {'Sodium, Na': None, 'Phosphorus, P': None,
                               'Manganese, Mn': None, 'Iron, Fe': None,
@@ -115,18 +110,15 @@ class Food(object):
                            'Sucrose': None, 'Maltose': None, 'Fructose': None,
                            'Glucose (dextrose)': None}
         if 'amino_acids' in self.nutritional_groupings:
-            self.amino_acids = {'Alcohol, ethyl': None, 'Stigmasterol': None,
-                                'Fatty acids, total trans-monoenoic': None,
-                                'Theobromine': None, 'Caffeine': None,
-                                'Fatty acids, total trans': None,
-                                'Fatty acids, total monounsaturated': None,
-                                'Beta-sitosterol': None,
-                                'Fatty acids, total saturated': None,
-                                'Fatty acids, total trans-polyenoic': None,
-                                'Campesterol': None, 'Cholesterol': None,
-                                'Ash': None,
-                                'Fatty acids, total polyunsaturated': None,
-                                'Phytosterols': None}
+            self.amino_acids = {'Lysine': None, 'Alanine': None,
+                                'Glycine': None, 'Proline': None, 'Serine': None,
+                                'Arginine': None, 'Glutamic acid': None,
+                                'Phenylalanine': None, 'Leucine': None,
+                                'Methionine': None, 'Histidine': None,
+                                'Valine': None, 'Tryptophan': None,
+                                'Isoleucine': None, 'Threonine': None,
+                                'Aspartic acid': None, 'Cystine': None,
+                                'Tyrosine': None}
         if 'other' in self.nutritional_groupings:
             self.other = {'Alcohol, ethyl': None, 'Stigmasterol': None,
                           'Fatty acids, total trans-monoenoic': None,
@@ -198,6 +190,71 @@ class Food(object):
                 else:
                     if debugging: print "vitamin", vit['units'],\
                                         vit['description']
+        if 'energy' in self.nutritional_groupings:
+            json_energy = [x for x
+                             in json_object['nutrients']
+                             if x['group'] == 'Energy']
+            for ener in json_vitamins:
+                if ener['units'] in ['g', 'mg', 'mcg']:
+                    self.energy[ener['description']] = \
+                                                ener['value']*\
+                                                converter[ener['units']]*\
+                                                serv_size_conv_fact
+                else:
+                    if debugging: print "energy", ener['units'],\
+                                        ener['description']
+        if 'sugars' in self.nutritional_groupings:
+            json_vitamins = [x for x
+                             in json_object['nutrients']
+                             if x['group'] == 'Sugars']
+            for sug in json_vitamins:
+                if sug['units'] in ['g', 'mg', 'mcg']:
+                    self.sugars[sug['description']] = \
+                                                sug['value']*\
+                                                converter[sug['units']]*\
+                                                serv_size_conv_fact
+                else:
+                    if debugging: print "sugar", sug['units'],\
+                                        sug['description']
+        if 'amino_acids' in self.nutritional_groupings:
+            json_vitamins = [x for x
+                             in json_object['nutrients']
+                             if x['group'] == 'Amino Acids']
+            for amino in json_vitamins:
+                if amino['units'] in ['g', 'mg', 'mcg']:
+                    self.amino_acids[amino['description']] = \
+                                                amino['value']*\
+                                                converter[amino['units']]*\
+                                                serv_size_conv_fact
+                else:
+                    if debugging: print "amino_acids", amino['units'],\
+                                        sug['description']
+        if 'other' in self.nutritional_groupings:
+            json_vitamins = [x for x
+                             in json_object['nutrients']
+                             if x['group'] == 'Other']
+            for oth in json_vitamins:
+                if oth['units'] in ['g', 'mg', 'mcg']:
+                    self.other[oth['description']] = \
+                                                oth['value']*\
+                                                converter[oth['units']]*\
+                                                serv_size_conv_fact
+                else:
+                    if debugging: print "sugar", sug['units'],\
+                                        sug['description']
+        if 'composition' in self.nutritional_groupings:
+            json_vitamins = [x for x
+                             in json_object['nutrients']
+                             if x['group'] == 'Composition']
+            for comp in json_vitamins:
+                if comp['units'] in ['g', 'mg', 'mcg']:
+                    self.composition[comp['description']] = \
+                                                comp['value']*\
+                                                converter[comp['units']]*\
+                                                serv_size_conv_fact
+                else:
+                    if debugging: print "composition", comp['units'],\
+                                        comp['description']
 
         ## may need a lookup table for IU to mg conversion for different
         ## vitamins and elements
@@ -272,16 +329,12 @@ class Meal(Food):
         self.foods.append(food.get_name())
         if 'elements' in self.nutritional_groupings:
             for key in self.elements:
-                #print 'ele before add', self.elements[key]
                 self.elements[key] = self._add_helper(self.elements[key],
                                                      food.elements[key])
-                #print 'ele after add', self.elements[key]
         if 'vitamins' in self.nutritional_groupings:
             for key in self.vitamins:
-                #print 'vit before add', self.vitamins[key]
                 self.vitamins[key] = self._add_helper(self.vitamins[key],
                                                      food.vitamins[key])
-                #print 'vit after add', self.vitamins[key]
         if 'energy' in self.nutritional_groupings:
             for key in self.energy:
                 self.energy[key] = self._add_helper(self.energy[key],
@@ -298,7 +351,6 @@ class Meal(Food):
             for key in self.other:
                 self.other[key] = self._add_helper(self.other[key],
                                                   food.other[key])
-
     def with_(self, food):
         """ with_ is a non-mutating version of add that returns a new Meal
             object.  The underscore avoids conflicts with the "with" built-in.
@@ -348,6 +400,11 @@ class Meal(Food):
                self.other[key] = self._subtract_helper(self.other[key],
                                                        food.other[key])
     def subtract(self, food):
+        ###################################################
+        ###################################################
+        #########              BROKEN          ############
+        ###################################################
+        ###################################################
         """ Subtracts a food and its nutrients from the current meal.
             Unlike "difference()" this method causes data mutatation
             """
@@ -421,7 +478,8 @@ class Meal(Food):
                 print "%-60s %15s" % ((member[:57]+"..."),
                                       str(self.foods.count(member)).ljust(8))
         print '-------------------------------------------------------------------------------'
-        
+    def get_foods(self):
+        return self.foods
 
 def display_nutrients(food, min_meal, max_meal):
     """ Displays the nutritional contents of 3 meals.
@@ -488,17 +546,13 @@ nutrient_subgroups = {'Elements': set(['Sodium, Na', 'Phosphorus, P',
                       'Energy': set(['Energy']),
                       'Sugars': set(['Galactose', 'Starch', 'Lactose', 'Sucrose',
                                      'Maltose', 'Fructose', 'Glucose (dextrose)']),
-                      'Amino Acids': set(['Alcohol, ethyl', 'Ash',
-                                          'Beta-sitosterol', 'Stigmasterol',
-                                          'Fatty acids, total trans-monoenoic',
-                                          'Theobromine', 'Caffeine',
-                                          'Fatty acids, total trans',
-                                          'Fatty acids, total trans-polyenoic',
-                                          'Fatty acids, total polyunsaturated',
-                                          'Fatty acids, total saturated',
-                                          'Campesterol', 'Cholesterol',
-                                          'Fatty acids, total monounsaturated',
-                                          'Phytosterols']),
+                      'Amino Acids': set(['Lysine', 'Alanine', 'Glycine',
+                                          'Proline', 'Serine', 'Arginine',
+                                          'Glutamic acid', 'Phenylalanine',
+                                          'Leucine', 'Methionine', 'Histidine',
+                                          'Valine', 'Tryptophan', 'Isoleucine',
+                                          'Threonine', 'Aspartic acid',
+                                          'Cystine', 'Tyrosine']),
                       'Other': set(['Alcohol, ethyl', 'Ash', 'Beta-sitosterol',
                                     'Stigmasterol',
                                     'Fatty acids, total trans-monoenoic',
@@ -620,6 +674,26 @@ def make_daily_max(groupings):
 #############################################################################
 ########################### JSON considerations #############################
 #############################################################################
+
+## JSON (list)
+##  -objects (dictionary)
+##      -'portions' (key)
+##          -list
+##              -'amount' (key)
+##              -'grams' (key)
+##              -'units' (key)
+##      -'description' (key)
+##          string value (value)
+##      -'tags' (key)
+##          bunch of random stuff, *could* be useful for search? (list)
+##      -'nutrients'
+##          * see nutrient subgroups
+##      -'group' (key)
+##          food group string (value)
+##      -'id' (key)
+##          integer (value)
+##      -'manufacturer' (key)
+##          string (68 in total for the entire db) (value)
 
 ##
 ## JSON filters (these filter foods *before* they're mapped into the custom
@@ -792,13 +866,32 @@ def get_object_by_name(name):
     return False
 
 import re
-def search_by_name(name):
+def search_by_name(word):
     matches = []
+    # db_tuple is the 'global' database, (not mutated so not declared)
     for jdict in db_tuple:
-        if re.search(name.lower(),
+        if re.search(word.lower(),
                       jdict['description'].lower()) is not None:
             matches.append(jdict['description'])
     return matches
+
+def search_many(word_list):
+    # a fairly naive multiple term search algorithm (term grouping is not incl.)
+    # counts the matches for each description, must match at least all but one
+    # term in the word list
+    matches = {}
+    for jdict in db_tuple: # db_tuple is the database, jdict is a json object
+        for word in word_list:
+            if re.search(word.lower(),
+                      jdict['description'].lower()) is not None:
+                if jdict['description'] not in matches.keys():
+                    matches[jdict['description']] = 1
+                else:
+                    matches[jdict['description']] += 1
+    intermediate = sorted(matches.items(), key=lambda x: x[1], reverse=True)
+    return [x[0] for x in intermediate if x[1] >= len(word_list) - 1
+            and x[1] > 1]
+            
  
 
 
@@ -820,6 +913,7 @@ def get_foods_for_objects(objects, nutrient_groups=['vitamins', 'elements']):
     return [Food(nutrient_groups, obj) for obj in objects]
 
 def get_food_with_name(food_name, nutrient_groups=None):
+    ######## rewrite
     if nutrient_groups == None:
         nutrient_groups = ['elements', 'vitamins']
     the_object = get_object_by_name(food_name)
@@ -1009,7 +1103,9 @@ def balanced_walk_greedy_alg():
 ############################## GUI Specific #################################
 #############################################################################
 
-def get_fields(nutritional_groupings=['elements', 'vitamins']):
+def get_fields(nutritional_groupings=['elements', 'vitamins', 'energy',
+                                      'sugars', 'amino_acids', 'other',
+                                      'composition']):
     print 'get_fields groupings:', nutritional_groupings
     food = Food(nutritional_groupings)
     fields = dict()
@@ -1017,12 +1113,15 @@ def get_fields(nutritional_groupings=['elements', 'vitamins']):
         fields[group] = food.__dict__[group].keys()
     return fields
 
-def get_food(name, groupings=['elements', 'vitamins']):
+def get_food(name, groupings=['elements', 'vitamins', 'energy', 'sugars',
+                              'amino_acids', 'other', 'composition']):
     """ Takes a food name (string) and returns the corresponding Food object.
         """
-    return get_food_with_name(name)
+    return get_food_with_name(name, groupings)
 
-def get_meal(name_list, groupings=['elements', 'vitamins']):
+def get_meal(name_list, groupings=['elements', 'vitamins', 'energy',
+                                      'sugars', 'amino_acids', 'other',
+                                      'composition']):
     """ Takes a list of food names (strings) and returns a Meal object of
         those foods.
         """
@@ -1032,9 +1131,19 @@ def get_meal(name_list, groupings=['elements', 'vitamins']):
         meal.add(food)
     return meal
 
-def get_benchmarks(nutritional_groupings=['elements', 'vitamins']):
+def get_benchmarks(nutritional_groupings=['elements', 'vitamins', 'energy',
+                                      'sugars', 'amino_acids', 'other',
+                                      'composition']):
     """ Returns a two-tuple of the minimum and maximum daily allowances
         """
     return (make_daily_min(nutritional_groupings),
             make_daily_max(nutritional_groupings))
     
+def search_like(search_string):
+    assert type(search_string) is unicode or type(search_string) is str
+    search_list = search_string.split(' ')
+    if len(search_list) == 1:
+        return search_by_name(search_string)
+    else:
+        return search_many(search_list)
+

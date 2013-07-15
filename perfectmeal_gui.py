@@ -30,11 +30,11 @@ class InteractivePanel(scrolled.ScrolledPanel):
     def __init__(self, parent):
         scrolled.ScrolledPanel.__init__(self, parent)
         self.parent = parent
-        self.fields = perfmeal.get_fields() # list of fields
-        #self.min_vals, self.max_vals = perfmeal.get_benchmarks() # should get values from listbox
+        self.fields = perfmeal.get_fields() # list of *displayed* fields
         self.text_fields = {} # dict mapping names to TextCtrls
         self.text_labels = {}
         self.section_labels = {}
+        self.current_meal = perfmeal.get_meal([])
         
         self.panel = scrolled.ScrolledPanel(parent=self)
 
@@ -59,12 +59,15 @@ class InteractivePanel(scrolled.ScrolledPanel):
 
     def BindButtonsEtc(self):
         self.Bind(wx.EVT_BUTTON, self.OnUseSelected, id=1)
+        self.Bind(wx.EVT_BUTTON, self.OnRemoveSelected, id=2)
+        self.Bind(wx.EVT_BUTTON, self.OnAddToMeal, id=3)
+        self.Bind(wx.EVT_BUTTON, self.OnGo, id=4)
     
     def AddFields(self):
         self.field_sizer = wx.GridBagSizer(hgap=5,vgap=5)
         self.nutritional_groupings = self.GetNutrientGroups()
         self.min_vals, self.max_vals = \
-                       perfmeal.get_benchmarks(self.nutritional_groupings)
+                       perfmeal.get_benchmarks()
         print 'nutritional groupings --> perfmeal.py', self.nutritional_groupings
         self.fields = perfmeal.get_fields(self.nutritional_groupings)
         if type(self.field_panel) != wx._windows.Panel:
@@ -134,10 +137,14 @@ class InteractivePanel(scrolled.ScrolledPanel):
                        pos=(0,0),
                        span=(100,4))
 
-    def DisplayFields(self):
+    def DisplayFieldValues(self):
         """ Displays values in the nutrient fields.
             """
-        pass
+        for key in self.fields.keys():
+            for item in self.fields[key]:
+                value = self.current_meal.get_val(key,item)
+                self.text_fields[item].SetValue(str(value))
+        
     def DestroyFields(self):
         """ Destroys the panel containing the nutrient fields,
             reinitializes the field data.
@@ -156,7 +163,7 @@ class InteractivePanel(scrolled.ScrolledPanel):
                                                id=-1,
                                                pos=(3,5),
                                                size=(275,375),
-                                               choices=['dummy','list'],
+                                               choices=[],
                                                style=wx.LB_MULTIPLE)
         self.current_meal_delete_button = wx.Button(parent=self.panel,
                                                     id=2,
@@ -184,7 +191,7 @@ class InteractivePanel(scrolled.ScrolledPanel):
         self.search_listbox = wx.ListBox(parent=self.panel,
                                          id=-1,
                                          size=(275,300),
-                                         choices=['search','dummy','list'],
+                                         choices=[],
                                          style=wx.LB_MULTIPLE)
         self.search_addto_button = wx.Button(parent=self.panel,
                                              id=3,
@@ -240,12 +247,33 @@ class InteractivePanel(scrolled.ScrolledPanel):
                        pos=(21,5),
                        flag=wx.ALIGN_RIGHT,
                        border=0)
-    def OnGo(self):
-        pass
-    def OnRemoveSelected(self):
-        pass
-    def OnAddToMeal(self):
-        pass
+    def OnGo(self, event):
+        print 'OnGo'
+        text = self.search_textbox.GetValue()
+        names = perfmeal.search_like(text)
+        self.search_listbox.Set(names)
+        
+    def OnRemoveSelected(self, event):
+        print 'OnRemoveSelected'
+        to_remove_indexes = self.current_meal_listbox.GetSelections()
+        to_remove_strings = self.current_meal_listbox.GetStrings()
+        names = [to_remove_strings[i] for i in to_remove_indexes]
+        for food_name in names:
+            new_food = perfmeal.get_food(food_name)
+            self.current_meal.subtract(new_food)
+        self.current_meal_listbox.Set(self.current_meal.get_foods())
+        self.DisplayFieldValues()
+            
+    def OnAddToMeal(self, event):
+        to_add_indexes = self.search_listbox.GetSelections()
+        to_add_strings = self.search_listbox.GetStrings()
+        names = [to_add_strings[i] for i in to_add_indexes]
+        for food_name in names:
+            new_food = perfmeal.get_food(food_name)
+            self.current_meal.add(new_food)
+        self.current_meal_listbox.Set(self.current_meal.get_foods())
+        self.DisplayFieldValues()
+            
     def OnUseSelected(self, event):
         #nutrient groupings
         if self.GetNutrientGroups() == self.nutritional_groupings:
@@ -253,6 +281,7 @@ class InteractivePanel(scrolled.ScrolledPanel):
         self.DestroyFields()
         self.AddFields()
         self.sizer.Layout()
+        self.DisplayFieldValues()
     def OnCurrentMealLBSelected(self, event):
         pass
     def OnSearchLBSelected(self, event):
@@ -264,6 +293,7 @@ class InteractivePanel(scrolled.ScrolledPanel):
         indexes = self.nutrient_groups_listbox.GetSelections()
         choices=['elements','vitamins','energy', 'sugars','amino_acids',
                  'other','composition']
+        print 'get nutrient groups:', [choices[i] for i in indexes]
         return [choices[i] for i in indexes]
 
     def populate_fields(self, name=None, meal=None, foods=None):
