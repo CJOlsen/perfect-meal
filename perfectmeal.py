@@ -194,7 +194,7 @@ class Food(object):
             json_energy = [x for x
                              in json_object['nutrients']
                              if x['group'] == 'Energy']
-            for ener in json_vitamins:
+            for ener in json_energy:
                 if ener['units'] in ['g', 'mg', 'mcg']:
                     self.energy[ener['description']] = \
                                                 ener['value']*\
@@ -204,10 +204,10 @@ class Food(object):
                     if debugging: print "energy", ener['units'],\
                                         ener['description']
         if 'sugars' in self.nutritional_groupings:
-            json_vitamins = [x for x
+            json_sugars = [x for x
                              in json_object['nutrients']
                              if x['group'] == 'Sugars']
-            for sug in json_vitamins:
+            for sug in json_sugars:
                 if sug['units'] in ['g', 'mg', 'mcg']:
                     self.sugars[sug['description']] = \
                                                 sug['value']*\
@@ -217,10 +217,10 @@ class Food(object):
                     if debugging: print "sugar", sug['units'],\
                                         sug['description']
         if 'amino_acids' in self.nutritional_groupings:
-            json_vitamins = [x for x
+            json_amino_acids = [x for x
                              in json_object['nutrients']
                              if x['group'] == 'Amino Acids']
-            for amino in json_vitamins:
+            for amino in json_amino_acids:
                 if amino['units'] in ['g', 'mg', 'mcg']:
                     self.amino_acids[amino['description']] = \
                                                 amino['value']*\
@@ -230,10 +230,10 @@ class Food(object):
                     if debugging: print "amino_acids", amino['units'],\
                                         sug['description']
         if 'other' in self.nutritional_groupings:
-            json_vitamins = [x for x
+            json_other = [x for x
                              in json_object['nutrients']
                              if x['group'] == 'Other']
-            for oth in json_vitamins:
+            for oth in json_other:
                 if oth['units'] in ['g', 'mg', 'mcg']:
                     self.other[oth['description']] = \
                                                 oth['value']*\
@@ -243,10 +243,10 @@ class Food(object):
                     if debugging: print "sugar", sug['units'],\
                                         sug['description']
         if 'composition' in self.nutritional_groupings:
-            json_vitamins = [x for x
+            json_composition = [x for x
                              in json_object['nutrients']
                              if x['group'] == 'Composition']
-            for comp in json_vitamins:
+            for comp in json_composition:
                 if comp['units'] in ['g', 'mg', 'mcg']:
                     self.composition[comp['description']] = \
                                                 comp['value']*\
@@ -351,6 +351,10 @@ class Meal(Food):
             for key in self.other:
                 self.other[key] = self._add_helper(self.other[key],
                                                   food.other[key])
+        if 'composition' in self.nutritional_groupings:
+            for key in self.composition:
+                self.composition[key] = self._add_helper(self.composition[key],
+                                                         food.composition[key])
     def with_(self, food):
         """ with_ is a non-mutating version of add that returns a new Meal
             object.  The underscore avoids conflicts with the "with" built-in.
@@ -359,7 +363,6 @@ class Meal(Food):
         new_obj.add(food)
         return new_obj
         
-    
     def _subtract_helper(self, first, second):
         # needed to deal with all the default None's floating around
         # used by _sub_diff_helper (only)
@@ -372,7 +375,10 @@ class Meal(Food):
             if second is None:
                 return first
             else:
-                return first - second
+                if first - second > .000000001:
+                    return first - second
+                else:
+                    return 0
     def _sub_diff_helper(self, food):
         # used by the subtract() and difference() methods
         if 'elements' in self.nutritional_groupings:
@@ -399,6 +405,10 @@ class Meal(Food):
             for key in self.other:
                self.other[key] = self._subtract_helper(self.other[key],
                                                        food.other[key])
+        if 'composition' in self.nutritional_groupings:
+            for key in self.composition:
+               self.composition[key] = self._subtract_helper(self.composition[key],
+                                                             food.composition[key])
     def subtract(self, food):
         ###################################################
         ###################################################
@@ -480,6 +490,9 @@ class Meal(Food):
         print '-------------------------------------------------------------------------------'
     def get_foods(self):
         return self.foods
+
+def test_subtract():
+    pass
 
 def display_nutrients(food, min_meal, max_meal):
     """ Displays the nutritional contents of 3 meals.
