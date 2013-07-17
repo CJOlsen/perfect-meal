@@ -143,6 +143,7 @@ class InteractivePanel(scrolled.ScrolledPanel):
         for key in self.fields.keys():
             for item in self.fields[key]:
                 value = self.current_meal.get_val(key,item)
+                #serv_size = self.current_meal.
                 self.text_fields[item].SetValue(str(value))
         
     def DestroyFields(self):
@@ -259,8 +260,7 @@ class InteractivePanel(scrolled.ScrolledPanel):
         to_remove_strings = self.current_meal_listbox.GetStrings()
         names = [to_remove_strings[i] for i in to_remove_indexes]
         for food_name in names:
-            new_food = perfmeal.get_food(food_name)
-            self.current_meal.subtract(new_food)
+            self.current_meal.subtract(food_name)
         self.current_meal_listbox.Set(self.current_meal.get_foods())
         self.DisplayFieldValues()
             

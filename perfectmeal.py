@@ -140,8 +140,8 @@ class Food(object):
         if json_obj is not None:
             self.populate_from_json(json_obj)
     def _portion_helper(self, json_object):
-        """ Takes a json_object, writes the smallest serving size (in grams) and
-            unit of measurement to memory.
+        """ Takes a json_object, writes the smallest serving size (in grams)
+            and unit of measurement to memory.
             Returns nothing.
             """
         portions = sorted(json_object['portions'], key=lambda k: k['grams'])
@@ -298,8 +298,7 @@ class Food(object):
         return self.others[name]
     def get_composition(name):
         return self.composition[name]
-    
-                
+       
 class Meal(Food):
     ## identical to the Food superclass with the addition of combination
     ## and comparison methods, and a self.foods attribute to keep a list of
@@ -326,7 +325,7 @@ class Meal(Food):
     def add(self, food):
         ## this can be looped using __dict__'s but it isn't very clear
         ## variable name "food" is unclear, maybe change
-        self.foods.append(food.get_name())
+        self.foods.append(food) ## (!) now keeping the entire food object (!)
         if 'elements' in self.nutritional_groupings:
             for key in self.elements:
                 self.elements[key] = self._add_helper(self.elements[key],
@@ -362,7 +361,15 @@ class Meal(Food):
         new_obj = copy.deepcopy(self)
         new_obj.add(food)
         return new_obj
-        
+
+    def _remove_helper(self, name):
+        # removes a food by name
+        # used by subtract (only)
+        for food in self.foods:
+            if food.get_name() == name:
+                self.foods.remove(food)
+                return
+        return False
     def _subtract_helper(self, first, second):
         # needed to deal with all the default None's floating around
         # used by _sub_diff_helper (only)
@@ -409,18 +416,19 @@ class Meal(Food):
             for key in self.composition:
                self.composition[key] = self._subtract_helper(self.composition[key],
                                                              food.composition[key])
-    def subtract(self, food):
-        ###################################################
-        ###################################################
-        #########              BROKEN          ############
-        ###################################################
-        ###################################################
+    def subtract(self, food_name):
         """ Subtracts a food and its nutrients from the current meal.
             Unlike "difference()" this method causes data mutatation
             """
-        assert food.get_name() in self.foods
-        self.foods.remove(food.get_name())
-        self._sub_diff_helper(food)    
+        print 'names:', [f.name for f in self.foods]
+        print 'food_name:', food_name
+        assert food_name in [f.name for f in self.foods]
+        for food in self.foods:
+            if food.get_name() == food_name:
+                self._sub_diff_helper(food)
+                self.foods.remove(food)
+                break
+            
     def difference(self, food):
         """ Returns a Meal object that represents the DIFFERENCE between
             the meal (self) and another meal, which may just be a benchmark.
@@ -489,7 +497,13 @@ class Meal(Food):
                                       str(self.foods.count(member)).ljust(8))
         print '-------------------------------------------------------------------------------'
     def get_foods(self):
-        return self.foods
+        return [food.get_name() for food in self.foods]
+
+    def get_food_by_name(self, name):
+        for food in self.foods:
+            if food.get_name(name) == name:
+                return food
+        return False
 
 def test_subtract():
     pass
