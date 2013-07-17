@@ -298,7 +298,15 @@ class Food(object):
         return self.others[name]
     def get_composition(name):
         return self.composition[name]
+<<<<<<< HEAD
        
+=======
+
+
+class Meal2(Food):
+    ## a build of Meal that keeps all foods as food objects in addition to 
+                
+>>>>>>> origin/master
 class Meal(Food):
     ## identical to the Food superclass with the addition of combination
     ## and comparison methods, and a self.foods attribute to keep a list of
