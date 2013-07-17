@@ -362,14 +362,6 @@ class Meal(Food):
         new_obj.add(food)
         return new_obj
 
-    def _remove_helper(self, name):
-        # removes a food by name
-        # used by subtract (only)
-        for food in self.foods:
-            if food.get_name() == name:
-                self.foods.remove(food)
-                return
-        return False
     def _subtract_helper(self, first, second):
         # needed to deal with all the default None's floating around
         # used by _sub_diff_helper (only)
