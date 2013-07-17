@@ -298,15 +298,7 @@ class Food(object):
         return self.others[name]
     def get_composition(name):
         return self.composition[name]
-<<<<<<< HEAD
        
-=======
-
-
-class Meal2(Food):
-    ## a build of Meal that keeps all foods as food objects in addition to 
-                
->>>>>>> origin/master
 class Meal(Food):
     ## identical to the Food superclass with the addition of combination
     ## and comparison methods, and a self.foods attribute to keep a list of
@@ -428,15 +420,13 @@ class Meal(Food):
         """ Subtracts a food and its nutrients from the current meal.
             Unlike "difference()" this method causes data mutatation
             """
-        print 'names:', [f.name for f in self.foods]
-        print 'food_name:', food_name
         assert food_name in [f.name for f in self.foods]
         for food in self.foods:
             if food.get_name() == food_name:
                 self._sub_diff_helper(food)
                 self.foods.remove(food)
                 break
-            
+    
     def difference(self, food):
         """ Returns a Meal object that represents the DIFFERENCE between
             the meal (self) and another meal, which may just be a benchmark.
