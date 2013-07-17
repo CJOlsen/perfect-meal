@@ -140,8 +140,8 @@ class Food(object):
         if json_obj is not None:
             self.populate_from_json(json_obj)
     def _portion_helper(self, json_object):
-        """ Takes a json_object, writes the smallest serving size (in grams) and
-            unit of measurement to memory.
+        """ Takes a json_object, writes the smallest serving size (in grams)
+            and unit of measurement to memory.
             Returns nothing.
             """
         portions = sorted(json_object['portions'], key=lambda k: k['grams'])
@@ -298,7 +298,10 @@ class Food(object):
         return self.others[name]
     def get_composition(name):
         return self.composition[name]
-    
+
+
+class Meal2(Food):
+    ## a build of Meal that keeps all foods as food objects in addition to 
                 
 class Meal(Food):
     ## identical to the Food superclass with the addition of combination

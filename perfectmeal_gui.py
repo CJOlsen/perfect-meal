@@ -143,6 +143,7 @@ class InteractivePanel(scrolled.ScrolledPanel):
         for key in self.fields.keys():
             for item in self.fields[key]:
                 value = self.current_meal.get_val(key,item)
+                #serv_size = self.current_meal.
                 self.text_fields[item].SetValue(str(value))
         
     def DestroyFields(self):
