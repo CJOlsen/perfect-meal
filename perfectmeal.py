@@ -165,97 +165,21 @@ class Food(object):
         serv_size_conv_fact = self.serving_size/100. # json data is per 100g
         converter = {'g':1000., 'mg': 1., 'mcg': (1/1000.)} # normalize to mg
         serving_size = json_object['portions']
-        if 'elements' in self.nutritional_groupings:
-            json_elements = [x for x
-                             in json_object['nutrients']
-                             if x['group'] == 'Elements']
-            for e in json_elements:
-                if e['units'] in ['g', 'mg', 'mcg']:
-                    self.elements[e['description']] = \
-                                                e['value']*\
-                                                converter[e['units']]*\
-                                                serv_size_conv_fact
+        
+        for nutr_group in self.nutritional_groupings:
+            for nutrient in json_object['nutrients']:
+                if nutrient['group'] == nutr_group.capitalize() and\
+                   nutrient['units'] in ['g','mg', 'mcg']:
+                    new_value = nutrient['value'] * converter[nutrient['units']]* \
+                                serv_size_conv_fact
+                    self.__dict__[nutr_group][nutrient['description']] = new_value
                 else:
-                     if debugging: print "element", e['units'], e['description']
-        if 'vitamins' in self.nutritional_groupings:
-            json_vitamins = [x for x
-                             in json_object['nutrients']
-                             if x['group'] == 'Vitamins']
-            for vit in json_vitamins:
-                if vit['units'] in ['g', 'mg', 'mcg']:
-                    self.vitamins[vit['description']] = \
-                                                vit['value']*\
-                                                converter[vit['units']]*\
-                                                serv_size_conv_fact
-                else:
-                    if debugging: print "vitamin", vit['units'],\
-                                        vit['description']
-        if 'energy' in self.nutritional_groupings:
-            json_energy = [x for x
-                             in json_object['nutrients']
-                             if x['group'] == 'Energy']
-            for ener in json_energy:
-                if ener['units'] in ['g', 'mg', 'mcg']:
-                    self.energy[ener['description']] = \
-                                                ener['value']*\
-                                                converter[ener['units']]*\
-                                                serv_size_conv_fact
-                else:
-                    if debugging: print "energy", ener['units'],\
-                                        ener['description']
-        if 'sugars' in self.nutritional_groupings:
-            json_sugars = [x for x
-                             in json_object['nutrients']
-                             if x['group'] == 'Sugars']
-            for sug in json_sugars:
-                if sug['units'] in ['g', 'mg', 'mcg']:
-                    self.sugars[sug['description']] = \
-                                                sug['value']*\
-                                                converter[sug['units']]*\
-                                                serv_size_conv_fact
-                else:
-                    if debugging: print "sugar", sug['units'],\
-                                        sug['description']
-        if 'amino_acids' in self.nutritional_groupings:
-            json_amino_acids = [x for x
-                             in json_object['nutrients']
-                             if x['group'] == 'Amino Acids']
-            for amino in json_amino_acids:
-                if amino['units'] in ['g', 'mg', 'mcg']:
-                    self.amino_acids[amino['description']] = \
-                                                amino['value']*\
-                                                converter[amino['units']]*\
-                                                serv_size_conv_fact
-                else:
-                    if debugging: print "amino_acids", amino['units'],\
-                                        sug['description']
-        if 'other' in self.nutritional_groupings:
-            json_other = [x for x
-                             in json_object['nutrients']
-                             if x['group'] == 'Other']
-            for oth in json_other:
-                if oth['units'] in ['g', 'mg', 'mcg']:
-                    self.other[oth['description']] = \
-                                                oth['value']*\
-                                                converter[oth['units']]*\
-                                                serv_size_conv_fact
-                else:
-                    if debugging: print "sugar", sug['units'],\
-                                        sug['description']
-        if 'composition' in self.nutritional_groupings:
-            json_composition = [x for x
-                             in json_object['nutrients']
-                             if x['group'] == 'Composition']
-            for comp in json_composition:
-                if comp['units'] in ['g', 'mg', 'mcg']:
-                    self.composition[comp['description']] = \
-                                                comp['value']*\
-                                                converter[comp['units']]*\
-                                                serv_size_conv_fact
-                else:
-                    if debugging: print "composition", comp['units'],\
-                                        comp['description']
-
+                    if nutr_group == "amino_acids" and\
+                       nutrient['units'] in ['g','mg', 'mcg']:
+                        new_value = nutrient['value'] * converter[nutrient['units']]* \
+                                    serv_size_conv_fact
+                        self.__dict__["amino_acids"][nutrient['description']] = new_value
+                
         ## may need a lookup table for IU to mg conversion for different
         ## vitamins and elements
         ## measurements not in g, mg or mcg are being ignored!!!
