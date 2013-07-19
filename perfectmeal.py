@@ -23,7 +23,7 @@
 ####		Food(object)
 ####		Meal(Food)
 ####	
-####	Data and Benchmarks
+####	Data and Benchmarks (data moved to nutrient_subgroups.py)
 ####		daily_min, daily_max 
 ####		various data for the program
 ####	
@@ -36,7 +36,7 @@
 ####	Making Food objects and lists of Food objects
 ####		(isolates the algorithms from JSON considerations)
 ####
-####	Searching Algorithms
+####	Searching Algorithms (moved to meal_buildinig.py)
 ####		brute force (to-do)
 ####		Greedy algorithms
 ####			based on Comparators (balance returns a "valid" result)
@@ -250,34 +250,12 @@ class Meal(Food):
         ## this can be looped using __dict__'s but it isn't very clear
         ## variable name "food" is unclear, maybe change
         self.foods.append(food) ## (!) now keeping the entire food object (!)
-        if 'elements' in self.nutritional_groupings:
-            for key in self.elements:
-                self.elements[key] = self._add_helper(self.elements[key],
-                                                     food.elements[key])
-        if 'vitamins' in self.nutritional_groupings:
-            for key in self.vitamins:
-                self.vitamins[key] = self._add_helper(self.vitamins[key],
-                                                     food.vitamins[key])
-        if 'energy' in self.nutritional_groupings:
-            for key in self.energy:
-                self.energy[key] = self._add_helper(self.energy[key],
-                                                   food.energy[key])
-        if 'sugars' in self.nutritional_groupings:
-            for key in self.sugars:
-                self.sugars[key] = self._add_helper(self.sugars[key],
-                                                   food.sugars[key])
-        if 'amino_acids' in self.nutritional_groupings:
-            for key in self.amino_acids:
-                self.amino_acids[key] = self._add_helper(self.amino_acids[key],
-                                                        food.amino_acids[key])
-        if 'other' in self.nutritional_groupings:
-            for key in self.other:
-                self.other[key] = self._add_helper(self.other[key],
-                                                  food.other[key])
-        if 'composition' in self.nutritional_groupings:
-            for key in self.composition:
-                self.composition[key] = self._add_helper(self.composition[key],
-                                                         food.composition[key])
+        for group in self.nutritional_groupings:
+            for key in self.__dict__[group]:
+                new_val = self._add_helper(self.get_val(group,key),
+                                           food.get_val(group,key))
+                self.__dict__[group][key] = new_val
+                
     def with_(self, food):
         """ with_ is a non-mutating version of add that returns a new Meal
             object.  The underscore avoids conflicts with the "with" built-in.
@@ -304,34 +282,13 @@ class Meal(Food):
                     return 0
     def _sub_diff_helper(self, food):
         # used by the subtract() and difference() methods
-        if 'elements' in self.nutritional_groupings:
-            for key in self.elements:
-               self.elements[key] = self._subtract_helper(self.elements[key],
-                                                          food.elements[key])
-        if 'vitamins' in self.nutritional_groupings:
-            for key in self.vitamins:
-               self.vitamins[key] = self._subtract_helper(self.vitamins[key],
-                                                          food.vitamins[key])
-        if 'energy' in self.nutritional_groupings:
-            for key in self.energy:
-               self.energy[key] = self._subtract_helper(self.energy[key],
-                                                        food.energy[key])
-        if 'sugars' in self.nutritional_groupings:
-            for key in self.sugars:
-               self.sugars[key] = self._subtract_helper(self.sugars[key],
-                                                        food.sugars[key])
-        if 'amino_acids' in self.nutritional_groupings:
-            for key in self.amino_acids:
-               self.amino_acids[key] = self._subtract_helper(self.amino_acids[key],
-                                                             food.amino_acids[key])
-        if 'other' in self.nutritional_groupings:
-            for key in self.other:
-               self.other[key] = self._subtract_helper(self.other[key],
-                                                       food.other[key])
-        if 'composition' in self.nutritional_groupings:
-            for key in self.composition:
-               self.composition[key] = self._subtract_helper(self.composition[key],
-                                                             food.composition[key])
+
+        for group in self.nutritional_groupings:
+            for key in self.__dict__[group]:
+                new_val = self._subtract_helper(self.get_val(group,key),
+                                                food.get_val(group,key))
+                self.__dict__[group][key] = new_val
+
     def subtract(self, food_name):
         """ Subtracts a food and its nutrients from the current meal.
             Unlike "difference()" this method causes data mutatation
@@ -363,37 +320,15 @@ class Meal(Food):
         assert type(food) in [Food, Meal]
         assert sorted(self.nutritional_groupings) == \
                sorted(food.nutritional_groupings)
-        ## this also could use a looping construct
         ## --check for logic error possibilities with None's--
-        if 'elements' in self.nutritional_groupings:
-            for key in self.elements:
-                if self.elements[key] < food.elements[key]:
-                    if self.elements[key] is not None and\
-                       food.elements[key] is not None: ## throw out None's
+        for group in self.nutritional_groupings:
+            for key in self.__dict__[group]:
+                this, that = self.get_val(group, key), food.get_val(group, key)
+                if this < that:
+                    if this is not None and that is not None:
                         return False
-        if 'vitamins' in self.nutritional_groupings:
-            for key in self.vitamins:
-                if self.vitamins[key] < food.vitamins[key]:
-                    if self.vitamins[key] is not None and\
-                       food.vitamins[key] is not None:
-                        return False
-        if 'energy' in self.nutritional_groupings:
-            for key in self.energy:
-                if self.energy[key] < food.energy[key]:
-                    return False
-        if 'sugars' in self.nutritional_groupings:
-            for key in self.sugars:
-                if self.sugars[key] < food.sugars[key]:
-                    return False
-        if 'amino_acids' in self.nutritional_groupings:
-            for key in self.amino_acids:
-                if self.elements[key] < food.elements[key]:
-                    return False
-        if 'other' in self.nutritional_groupings:
-            for key in self.other:
-                if self.other[key] < food.other[key]:
-                    return False
         return True
+    
     def display_foods(self):
         if self.foods == []:
             return False
@@ -418,9 +353,6 @@ class Meal(Food):
             if food.get_name(name) == name:
                 return food
         return False
-
-def test_subtract():
-    pass
 
 def display_nutrients(food, min_meal, max_meal):
     """ Displays the nutritional contents of 3 meals.
@@ -451,107 +383,9 @@ def info(name):
     print 'weight:', food.serving_size, 'grams'
 
 #############################################################################
-################## some data and (nuritional) benchmarks ####################
+############################ nutritional benchmarks #########################
 #############################################################################
-
-#IU_conversions:::: 'Vitamin A':  0.3 mcg retinol, 0.6 mcg beta-carotene
-
-## this isn't being used right now but it's nice to have around
-## came from running through the JSON database and saving the results
-nutrient_subgroups = {'Elements': set(['Sodium, Na', 'Phosphorus, P',
-                                       'Manganese, Mn', 'Iron, Fe',
-                                       'Potassium, K', 'Fluoride, F',
-                                       'Selenium, Se', 'Magnesium, Mg',
-                                       'Zinc, Zn', 'Copper, Cu', 'Calcium, Ca']),
-                      'Vitamins': set(['Niacin', 'Menaquinone-4', 'Thiamin',
-                                       'Folate, food', 'Vitamin B-6',
-                                       'Tocopherol, gamma', 'Carotene, beta',
-                                       'Pantothenic acid', 'Vitamin E, added',
-                                       'Tocopherol, beta',
-                                       'Vitamin C, total ascorbic acid',
-                                       'Tocopherol, delta',
-                                       'Cryptoxanthin, beta',
-                                       'Vitamin D3 (cholecalciferol)',
-                                       'Lycopene', 'Vitamin B-12, added',
-                                       'Vitamin A, IU', 'Retinol',
-                                       'Vitamin A, RAE', 'Dihydrophylloquinone',
-                                       'Vitamin E (alpha-tocopherol)',
-                                       'Lutein + zeaxanthin', 'Betaine',
-                                       'Riboflavin', 'Vitamin D',
-                                       'Vitamin D2 (ergocalciferol)',
-                                       'Carotene, alpha', 'Folic acid',
-                                       'Folate, total', 'Vitamin B-12',
-                                       'Choline, total',
-                                       'Vitamin K (phylloquinone)',
-                                       'Vitamin D (D2 + D3)', 'Folate, DFE']),
-                      'Energy': set(['Energy']),
-                      'Sugars': set(['Galactose', 'Starch', 'Lactose', 'Sucrose',
-                                     'Maltose', 'Fructose', 'Glucose (dextrose)']),
-                      'Amino Acids': set(['Lysine', 'Alanine', 'Glycine',
-                                          'Proline', 'Serine', 'Arginine',
-                                          'Glutamic acid', 'Phenylalanine',
-                                          'Leucine', 'Methionine', 'Histidine',
-                                          'Valine', 'Tryptophan', 'Isoleucine',
-                                          'Threonine', 'Aspartic acid',
-                                          'Cystine', 'Tyrosine']),
-                      'Other': set(['Alcohol, ethyl', 'Ash', 'Beta-sitosterol',
-                                    'Stigmasterol',
-                                    'Fatty acids, total trans-monoenoic',
-                                    'Theobromine', 'Caffeine',
-                                    'Fatty acids, total trans',
-                                    'Fatty acids, total trans-polyenoic',
-                                    'Fatty acids, total polyunsaturated',
-                                    'Fatty acids, total saturated',
-                                    'Campesterol', 'Cholesterol',
-                                    'Fatty acids, total monounsaturated',
-                                    'Phytosterols']),
-                      'Composition': set(['Fiber, total dietary',
-                                          'Adjusted Protein', 'Water',
-                                          'Total lipid (fat)', 'Protein',
-                                          'Carbohydrate, by difference',
-                                          'Sugars, total'])}
-
-## these are max/min values from the USDA (find link, put it here)
-## all values in mg !!!!
-## http://www.iom.edu/Global/News%20Announcements/~/media/Files/Activity%20Files/Nutrition/DRIs/DRI_Summary_Listing.pdf
-## http://iom.edu/Activities/Nutrition/SummaryDRIs/~~/media/Files/Activity%20Files/Nutrition/DRIs/RDA%20and%20AIs_Vitamin%20and%20Elements.pdf
-#
-## ******** (are some of these actually in GRAMS????????) ********
-##daily_min_content = Nutrients(vitamin_a=.9, vitamin_c=90., vitamin_d=.015,
-##                              vitamin_e=15., vitamin_k=.12, thiamin=1.2,
-##                              riboflavin=1.3, niacin=16., vitamin_b6=0,
-##                              folate=.4, vitamin_b12=.0024, pantothenic_acid=5.,
-##                              biotin=30., choline=550., calcium=1000.,
-##                              chromium=.035, copper=.9, fluoride=4.,
-##                              iodine=.15, iron=8., magnesium=420.,
-##                              manganese=2.3, molybdenum=.045, phosphorus=700.,
-##                              selenium=.055, zinc=11., potassium=4700.,
-##                              sodium=1500., chloride=2300.)
-##
-##daily_max_content = Nutrients(vitamin_a=3., vitamin_c=2000., vitamin_d=.05,
-##                              vitamin_e=1000., vitamin_k=999999, thiamin=999999,
-##                              riboflavin=999999, niacin=35., vitamin_b6=100,
-##                              folate=1., vitamin_b12=999999, pantothenic_acid=999999,
-##                              biotin=999999, choline=3500., calcium=2500.,
-##                              chromium=999999, copper=10., fluoride=10,
-##                              iodine=1.1, iron=45., magnesium=999999,
-##                              manganese=11., molybdenum=2., phosphorus=4000.,
-##                              selenium=.4, zinc=40., potassium=999999,
-##                              sodium=2300., chloride=3600.)
-
-
-## Vitamin A IU --> mg  (1000 IU == 300 mcg == .3 mg, 1 IU = 3/10,000 mg)
-## the considerations of various Vitamin A measurements is beyond me...
-## vitamin E is broken up between 'added' and 'alpha-tocopherol' (why?)
-## is Iodine not in the database?  (that can't be...)
-## Biotin not in the database?
-#
-## ******** THIS WILL NEED CLEAN-UP LATER!!!!  FOR NOW 23 VITAMINS AND
-## ******** AND MINERALS IS ENOUGH FOR A PROOF OF CONCEPT 
-#
-## These represent the benchmark meals used to determine if a given meal
-## falls within acceptable boundaries.
-## ** these keys must match exactly the keys in the JSON databse **
+# *see nutrient_subgroups.py
 
 def make_daily_min(groupings):
     # not complete
@@ -862,182 +696,6 @@ def get_food_with_name(food_name, nutrient_groups=None):
         return Food(nutrient_groups, the_object)
     else:
         return False
-
-#############################################################################
-############################### FINDING MEALS ###############################
-#############################################################################
-
-def greedy_alg(min_meal, max_meal, servings, food_groups, nutrient_groups,
-                   comparator, seed_name, names=None):
-        """ 
-            min_meal: benchmark Meal object
-            max_meal: benchmark Meal object
-            servings: integer
-            food_groups: list, used to filter from the JSON database
-            nutrient_groups: list, used as an argument for Food and Meal objects
-            comparator: procedure, comparator used to measure objects
-            seed_name: name of the first food used as a seed
-            names: optional list of food names, filters the JSON objects
-            """
-        print 'Greedy Algorithm Beginning, comparator is:', comparator.__name__
-        foods = get_food_objects(food_groups, Name_Filter(names),
-                                 nutrient_groups)
-        first_food = get_food_with_name(seed_name, nutrient_groups)
-        current_foods = [first_food]
-        #tries = [first_food]
-        current_meal = Meal(nutrient_groups, first_food)
-        counter = [0] # putting the counter in a list sidesteps namespace
-                      # issues (nonlocal not implemented until Python 3.0)
-        def _next_food_helper(current_meal, min_meal, max_meal, foods,
-                              nutrient_groups, comparator):
-            """
-                current_meal: the meal so far
-                min_meal, max_meal: the benchmark meals
-                foods: list of Food objects from above
-                nutrient_groups: i.e. ['vitamins', 'elements']
-                comparator: function that takes a meal, the min_meal and an
-                            optional argument
-                            returns a unitless number, smaller = better
-                """
-            next_food = foods[0] # seed
-            next_food_meal_score = comparator(min_meal,
-                                              current_meal.with_(next_food),
-                                              counter)
-            for food in foods:
-                prospective_meal_score = comparator(min_meal,
-                                                    current_meal.with_(food),
-                                                    counter)
-                if not max_meal.greater_than(current_meal.with_(food)):
-                    continue  ## where is the best place for this check???
-                if prospective_meal_score < next_food_meal_score:
-                    next_food = food
-                    next_food_meal_score = prospective_meal_score
-            counter[0] += 1
-            #print 'next food is:', next_food.name
-            return next_food
-        
-        while len(current_foods) < servings:
-            if not max_meal.greater_than(current_meal):
-                print "Dead end reached in search algorithm, one or more"
-                print "maximum constraints have been violated"
-                print "Current foods: ", [x.name for x in current_foods]
-                return current_meal
-            if current_meal.greater_than(min_meal):
-                return current_meal
-            current_foods.append(_next_food_helper(current_meal, min_meal,
-                                                   max_meal, foods,
-                                                   nutrient_groups, comparator))
-            current_meal.add(current_foods[-1])
-        return current_meal
-
-
-## COMPARATORS (return a unitless number used to compare meals)
-    ## the 'optional' argument can be used to pass whatever info may be needed
-    ## it may be nice to include a lambda function with each comparator that
-    ## will automatically gather whatever info that comparator may need
-def finish_line(min_meal, meal, optional=None):
-    """ This algorithm takes a meal and a min_meal (benchmark meal) and finds
-        the total distance between the meal and meeting its min constraints.
-        The bigger the distance the farther from the min-meal.
-        """
-    distance = 0
-    for group in meal.groupings:
-        for key in meal.d(group):
-            if meal.d(group)[key] < min_meal.d(group)[key]:
-                if meal.d(group)[key] is not None and\
-                   min_meal.d(group)[key] is not None: ## temporary, better way?
-                    distance += ((min_meal.d(group)[key] -
-                                  meal.d(group)[key]) / min_meal.d(group)[key])
-    return distance
-
-def balance(min_meal, meal, optional=None):
-    """ This algorithm focuses on the overall balance of a meal, the more
-        evenly distributed the nutrients, the lower the b_factor.
-        If every nutrient is at 80% of it's min value the b_factor would be
-        zero, this only measures lopsidedness.
-        The bigger the number the more lopsided the meal.
-        """
-    total = 0 # total distance from perfect balance
-    count = 0
-    # get the average level
-    for group in meal.groupings:
-        for key in meal.d(group):
-            if meal.d(group)[key] is not None and\
-                   min_meal.d(group)[key] is not None:
-                total += meal.d(group)[key] / min_meal.d(group)[key]
-                count += 1
-    average = total/count
-    b_factor = 0
-    for g in meal.groupings:
-        for key in meal.d(group):
-            if meal.d(group)[key] is not None and\
-                   min_meal.d(group)[key] is not None: ## temporary
-                #b_factor += abs(average - (meal.d(group)[key] / min_meal.d(group)[key]))
-                if meal.d(group)[key] < min_meal.d(group)[key]:
-                    b_factor += 4 * abs(average - (meal.d(group)[key] / min_meal.d(group)[key]))
-                else:
-                    b_factor += abs(average - (meal.d(group)[key] / min_meal.d(group)[key]))
-    return b_factor
-    
-def alternating_finish_line_balance(min_meal, meal, optional=None):
-    if optional % 2 == 0:
-        return balance(min_meal, meal, optional)
-    else:
-        return finish_line(min_meal, meal, optional)
-
-
-
-def test_greedy_finish_line(seed='Alfalfa seeds, sprouted, raw'):
-    groupings = ['elements', 'vitamins']
-    d_min = make_daily_min(groupings)
-    d_max = make_daily_max(groupings)
-    the_meal = greedy_alg(d_min, d_max, 250, veggie_beef_filter,
-                          groupings, finish_line,
-                          seed)
-    display_nutrients(the_meal, d_min, d_max)
-    print "Meets minimum requirements? ", the_meal.greater_than(d_min)
-    print "Meets maximum requirements? ", d_max.greater_than(the_meal) 
-    return the_meal
-
-def test_greedy_balance(seed='Alfalfa seeds, sprouted, raw'):
-    ## this takes a very long time to run and doesn't return a valid solution
-    ## for 1000 foods it still doesn't reach all minimum values
-    ## perhaps some sort of weighting scheme will help?
-    groupings = ['elements', 'vitamins']
-    d_min = make_daily_min(groupings)
-    d_max = make_daily_max(groupings)
-    the_meal = greedy_alg(d_min, d_max, 10000, veggie_beef_filter,
-                          groupings, balance,
-                          seed)
-    display_nutrients(the_meal, d_min, d_max)
-    print "Meets minimum requirements? ", the_meal.greater_than(d_min)
-    print "Meets maximum requirements? ", d_max.greater_than(the_meal) 
-    return the_meal
-
-def test_greedy_alternating(seed='Alfalfa seeds, sprouted, raw'):
-    groupings = ['elements', 'vitamins']
-    d_min = make_daily_min(groupings)
-    d_max = make_daily_max(groupings)
-    the_meal = greedy_alg(d_min, d_max, 250, veggie_beef_filter,
-                          groupings, alternating_finish_line_balance,
-                          seed)
-    display_nutrients(the_meal, d_min, d_max)
-    print "Meets minimum requirements? ", the_meal.greater_than(d_min)
-    print "Meets maximum requirements? ", d_max.greater_than(the_meal) 
-    return the_meal
-            
-def run_walk_greedy_alg():
-    """ Uses the finish_line() comparator until half of the nutrients have met
-        their min constraints, then switches to the balance() comparator.
-        """
-    pass
-
-def balanced_walk_greedy_alg():
-    """ Uses the finish_line() comparator unless the nutritional balance is
-        too unbalanced, then uses balance() to balance the situation before
-        switching back to finish_line()
-        """
-    pass
 
 
 #############################################################################
