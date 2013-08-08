@@ -165,6 +165,7 @@ class Food(object):
         serv_size_conv_fact = self.serving_size/100. # json data is per 100g
         converter = {'g':1000., 'mg': 1., 'mcg': (1/1000.)} # normalize to mg
         serving_size = json_object['portions']
+        print 'serving_size, self.serving_size', serving_size, self.serving_size
         
         for nutr_group in self.nutritional_groupings:
             for nutrient in json_object['nutrients']:
@@ -176,7 +177,8 @@ class Food(object):
                 else:
                     if nutr_group == "amino_acids" and\
                        nutrient['units'] in ['g','mg', 'mcg']:
-                        new_value = nutrient['value'] * converter[nutrient['units']]* \
+                        new_value = nutrient['value'] * \
+                                    converter[nutrient['units']]* \
                                     serv_size_conv_fact
                         self.__dict__["amino_acids"][nutrient['description']] = new_value
                 
@@ -202,7 +204,11 @@ class Food(object):
                 if item_name == name:
                     print "Name:", name, " Value: ", self.__dict__[group][name]
     def get_val(self, group, item):
-        return self.__dict__[group][item]
+        ## hacky way to deal with the 'null' meal
+        try:
+            return self.__dict__[group][item]
+        except:
+            return None
     def get_name(self):
         return self.name
     def set_name(self, name):
@@ -347,6 +353,10 @@ class Meal(Food):
         print '-------------------------------------------------------------------------------'
     def get_foods(self):
         return [food.get_name() for food in self.foods]
+
+    def get_servings_and_foods(self):
+        return [str(food.serving_size)+'g'+'--'+ food.get_name()
+                for food in self.foods]
 
     def get_food_by_name(self, name):
         for food in self.foods:
@@ -710,6 +720,11 @@ def get_fields(nutritional_groupings=['elements', 'vitamins', 'energy',
     fields = dict()
     for group in food.nutritional_groupings:
         fields[group] = food.__dict__[group].keys()
+    return fields
+
+def get_fields_for_group(group):
+    food = Food([group])
+    fields = food.__dict__[group].keys()
     return fields
 
 def get_food(name, groupings=['elements', 'vitamins', 'energy', 'sugars',

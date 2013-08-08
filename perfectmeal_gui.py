@@ -22,23 +22,98 @@
 
 
 import wx
+import wx.grid
 import wx.lib.scrolledpanel as scrolled
 import perfectmeal as perfmeal
+
+class NutrientGridDataTable(wx.grid.PyGridTableBase):
+    def __init__(self):
+        super(NutrientGridDataTable, self).__init__()
+        self.data = []
+        self.row_titles = []
+
+####    def ResetView(self):
+####        """Trim/extend the control's rows and update all values"""
+####        ## copy/pasted from http://wiki.wxpython.org/wxGrid#Changing_Size.2BAC8-Shape_of_Grid.2BAC8-Table
+####        #self.getGrid().BeginBatch()
+####        for current, new, delmsg, addmsg in [
+####            (self.currentRows, self.GetNumberRows(), wxGRIDTABLE_NOTIFY_ROWS_DELETED, wxGRIDTABLE_NOTIFY_ROWS_APPENDED),
+####            (self.currentColumns, self.GetNumberCols(), wxGRIDTABLE_NOTIFY_COLS_DELETED, wxGRIDTABLE_NOTIFY_COLS_APPENDED),
+####            ]:
+####            if new < current:
+####                msg = wxGridTableMessage(
+####                    self,
+####                    delmsg,
+####                    new,    # position
+####                    current-new,
+####                    )
+####                #self.getGrid().ProcessTableMessage(msg)
+####            elif new > current:
+####                msg = wxGridTableMessage(
+####                self,
+####                    addmsg,
+####                    new-current
+####                    )
+####                #self.getGrid().ProcessTableMessage(msg)
+####                self.UpdateValues()
+####                self.getGrid().EndBatch()
+####                
+####                # The scroll bars aren't resized (at least on windows)
+####                # Jiggling the size of the window rescales the scrollbars
+####                h,w = grid.GetSize()
+####                grid.SetSize((h+1, w))
+####                grid.SetSize((h, w))
+####                grid.ForceRefresh()
+
+    def SetParent(self, parent):
+        print 'setting parent'
+        self.parent = parent
+        
+    def RefreshData(self):
+        self.nutritional_groupings = self.parent.GetNutrientGroups()
+        for group in self.nutritional_groupings:
+            self.row_titles.append(group.upper())
+            self.data.append(["","",""])
+
+            fields = perfmeal.get_fields_for_group(group)
+            for field in fields:
+                self.row_titles.append(field)
+                self.data.append([self.parent.current_meal.get_val(group,field),
+                                  self.parent.min_vals.get_val(group,field),
+                                  self.parent.max_vals.get_val(group,field)])
+            
+    def GetNumberRows(self):
+        return len(self.data)
+    def GetNumberCols(self):
+        return len(self.data[0])
+    def IsEmptyCell(self, row, col):
+        return False
+    def GetTypeName(self, row, col):
+        return None
+    def GetRowLabel(self, row):
+        return self.row_titles[row]
+    def GetRowLabelSize(self):
+        return max([len(x) for x in self.row_titles]) * 8
+    def GetEntryHighlight(self, row):
+        if self.data[row][0] is None:
+            return None
+        a = self.data[row][0] > self.data[row][1] or self.data[row][1] is None
+        b = self.data[row][0] < self.data[row][2] or self.data[row][2] is None
+        if a and b:
+            return (151, 252, 151)
+        else:
+            return None
+    def GetValue(self,row,col):
+        return self.data[row][col]
+    def SetValue(self, row, col, value):
+        pass
 
 class InteractivePanel(scrolled.ScrolledPanel):
     ## Essentially everything except the menubar, menu items, etc.
     def __init__(self, parent):
         scrolled.ScrolledPanel.__init__(self, parent)
         self.parent = parent
-        self.fields = perfmeal.get_fields() # list of *displayed* fields
-        self.text_fields = {} # dict mapping names to TextCtrls
-        self.text_labels = {}
-        self.section_labels = {}
         self.current_meal = perfmeal.get_meal([])
-        
-        self.panel = scrolled.ScrolledPanel(parent=self)
-
-        self.field_panel = wx.Panel(parent=self.panel)
 
         self.BuildUI()
         self.SetAutoLayout(1)
@@ -50,123 +125,105 @@ class InteractivePanel(scrolled.ScrolledPanel):
         self.sizer = wx.GridBagSizer(hgap=5, vgap=5)
 
         self.AddListboxes()
-        self.AddFields()
+        #self.AddFields()
+        self.AddNutritionalGrid()
         self.BindButtonsEtc()
         
         self.SetSizer(self.sizer)
         self.sizer.Layout()
-        self.panel.SetSizerAndFit(self.sizer)
+        self.SetSizerAndFit(self.sizer)
 
     def BindButtonsEtc(self):
         self.Bind(wx.EVT_BUTTON, self.OnUseSelected, id=1)
         self.Bind(wx.EVT_BUTTON, self.OnRemoveSelected, id=2)
         self.Bind(wx.EVT_BUTTON, self.OnAddToMeal, id=3)
         self.Bind(wx.EVT_BUTTON, self.OnGo, id=4)
-    
-    def AddFields(self):
-        self.field_sizer = wx.GridBagSizer(hgap=5,vgap=5)
-        self.nutritional_groupings = self.GetNutrientGroups()
+
+    def MakeNutritionalGridDataTable(self):
+        """ Creates the data backend for the Nutritional Grid """
+        self.nutr_grid_data = NutrientGridDataTable()
+        self.nutr_grid_data.SetParent(self) # so it can freely access local data
         self.min_vals, self.max_vals = \
                        perfmeal.get_benchmarks()
-        print 'nutritional groupings --> perfmeal.py', self.nutritional_groupings
-        self.fields = perfmeal.get_fields(self.nutritional_groupings)
-        if type(self.field_panel) != wx._windows.Panel:
-            ## this happens if the panel has been destroyed and needs recreating
-            self.field_panel = wx.Panel(parent=self.panel)
-        i=0 #row
-        for key in self.fields.keys():
-            # key is section name
-            self.section_labels[key] = wx.StaticText(parent=self.field_panel,
-                                                     label=key.upper())
-            self.field_sizer.Add(self.section_labels[key],
-                           pos=(i,0),
-                           flag=wx.TOP|wx.LEFT|wx.BOTTOM|wx.ALIGN_RIGHT,
-                           border=5)
-            i+=1
-            for item in self.fields[key]:
-                # add label
-                self.text_labels[item] = wx.StaticText(parent=self.field_panel,
-                                                       label=item)
-                self.field_sizer.Add(self.text_labels[item],
-                       pos=(i,0),
-                       flag=wx.TOP|wx.LEFT|wx.BOTTOM|wx.ALIGN_RIGHT,
-                       border=1)
-                # add textbox for actual values
-                self.text_fields[item] = wx.TextCtrl(parent=self.field_panel,
-                                                     id=500,
-                                                     size=(60, -1))
-                self.field_sizer.Add(self.text_fields[item],
-                               pos=(i,1),
-                               flag=wx.TOP|wx.LEFT|wx.BOTTOM|wx.ALIGN_RIGHT,
-                               border=1)
-                # add textboxes for max and min values
-                min_value = wx.StaticText(parent=self.field_panel,
-                                          label=str(self.min_vals.get_val(key,
-                                                                          item)))
-                max_value = wx.StaticText(parent=self.field_panel,
-                                          label=str(self.max_vals.get_val(key,
-                                                                          item)))
-                self.field_sizer.Add(min_value,
-                               pos=(i,2),
-                               flag=wx.TOP|wx.LEFT|wx.BOTTOM|wx.ALIGN_CENTER,
-                               border=1)
-                self.field_sizer.Add(max_value,
-                               pos=(i,3),
-                               flag=wx.TOP|wx.LEFT|wx.BOTTOM|wx.ALIGN_CENTER,
-                               border=1)
-                i+=1
-        # add column labels
-        actual_label = wx.StaticText(parent=self.field_panel, label="Actual")
-        min_label = wx.StaticText(parent=self.field_panel, label="Min")
-        max_label = wx.StaticText(parent=self.field_panel, label="Max")
-        self.field_sizer.Add(actual_label,
-                       pos=(0,1),
-                       flag=wx.TOP|wx.LEFT|wx.BOTTOM|wx.ALIGN_CENTER,
-                       border=5)
-        self.field_sizer.Add(min_label,
-                       pos=(0,2),
-                       flag=wx.TOP|wx.LEFT|wx.BOTTOM|wx.ALIGN_CENTER,
-                       border=5)
-        self.field_sizer.Add(max_label,
-                       pos=(0,3),
-                       flag=wx.TOP|wx.LEFT|wx.BOTTOM|wx.ALIGN_CENTER,
-                       border=5)
-        # final setup
-        self.field_panel.SetSizer(self.field_sizer)
-        self.sizer.Add(self.field_panel,
+        self.nutr_grid_data.RefreshData()
+        
+    def AddNutritionalGrid(self):
+        """ Creates the Nutritional Grid """
+        ## new way of displaying meal nutrients
+        #self.nutr_grid_panel = wx.Panel(parent=self)
+        self.MakeNutritionalGridDataTable()
+        
+        self.nutritional_groupings = self.GetNutrientGroups()
+        rows = self.nutr_grid_data.GetNumberRows()
+        columns = self.nutr_grid_data.GetNumberCols()
+        
+        #self.nutritional_grid = wx.grid.Grid(self.nutr_grid_panel)
+        self.nutritional_grid = wx.grid.Grid(self)
+        self.nutritional_grid.CreateGrid(rows, columns)
+        self.nutritional_grid.SetRowLabelSize(self.nutr_grid_data.GetRowLabelSize())
+        self.nutritional_grid.SetColLabelValue(0,'current')
+        self.nutritional_grid.SetColLabelValue(1,'min')
+        self.nutritional_grid.SetColLabelValue(2,'max')
+
+        self.DisplayNutritionalGridValues()
+        
+        #self.nutr_grid_sizer = wx.BoxSizer(wx.VERTICAL)
+        #self.nutr_grid_sizer.Add(self.nutritional_grid,100,wx.EXPAND)
+        #self.nutr_grid_panel.SetSizer(self.nutr_grid_sizer)
+
+        self.sizer.Add(self.nutritional_grid,
                        pos=(0,0),
                        span=(100,4))
-
-    def DisplayFieldValues(self):
-        """ Displays values in the nutrient fields.
-            """
-        for key in self.fields.keys():
-            for item in self.fields[key]:
-                value = self.current_meal.get_val(key,item)
-                #serv_size = self.current_meal.
-                self.text_fields[item].SetValue(str(value))
+        self.sizer.Layout() # needed for updating the grid
         
-    def DestroyFields(self):
-        """ Destroys the panel containing the nutrient fields,
-            reinitializes the field data.
-            """
-        self.field_panel.DestroyChildren()
-        self.field_panel.Destroy()
-        self.text_fields = {}
-        self.text_labels = {}
-        self.section_labels = {}
-    
+    def RemoveNutritionalGrid(self):
+        print "RemoveNutritionalGrid"
+        self.sizer.Remove(self.nutritional_grid)
+        self.nutritional_grid.Destroy()
+        
+    def DisplayNutritionalGridValues(self):
+        """ Populates the Nutritional Grid"""
+        self.nutr_grid_data.RefreshData()
+        rows = self.nutr_grid_data.GetNumberRows()
+        columns = self.nutr_grid_data.GetNumberCols()
+        for i in range(rows):
+            for j in range(columns):
+                self.nutritional_grid.SetCellValue(i,
+                                                   j,
+                                                   str(self.nutr_grid_data.GetValue(i,
+                                                                                j)))
+        for i in range(rows):
+            self.nutritional_grid.SetRowLabelValue(i,
+                                                   str(self.nutr_grid_data.GetRowLabel(i)))
+        self.HighlightNutritionalGrid()
+
+    def HighlightNutritionalGrid(self):
+        for row_num in range(self.nutr_grid_data.GetNumberRows()):
+            highlight = self.nutr_grid_data.GetEntryHighlight(row_num)
+            if highlight is not None:
+                self.nutritional_grid.SetCellBackgroundColour(row_num,
+                                                              0,
+                                                              highlight)
+
+    def ResetNutritionalGrid(self):
+        print 'reset called'
+        self.RemoveNutritionalGrid()
+        self.AddNutritionalGrid()
+##        self.nutritional_grid.ForceRefresh()
+##        self.nutr_grid_sizer.Layout()
+##        self.sizer.Layout()
+        
     def AddListboxes(self):
         ## current meal
-        current_meal_label = wx.StaticText(parent=self.panel,
+        current_meal_label = wx.StaticText(parent=self,
                                            label="Current Meal")
-        self.current_meal_listbox = wx.ListBox(parent=self.panel,
+        self.current_meal_listbox = wx.ListBox(parent=self,
                                                id=-1,
                                                pos=(3,5),
                                                size=(275,375),
                                                choices=[],
                                                style=wx.LB_MULTIPLE)
-        self.current_meal_delete_button = wx.Button(parent=self.panel,
+        self.current_meal_delete_button = wx.Button(parent=self,
                                                     id=2,
                                                     label='Remove Selected')
         self.sizer.Add(current_meal_label,
@@ -184,17 +241,18 @@ class InteractivePanel(scrolled.ScrolledPanel):
                        border=0)
 
         ## search boxes
-        self.search_label = wx.StaticText(parent=self.panel, label="Search Database")
-        self.search_textbox = wx.TextCtrl(parent=self.panel,
+        self.search_label = wx.StaticText(parent=self, label="Search Database")
+        self.search_textbox = wx.TextCtrl(parent=self,
                                           id=-1,
                                           size=(275, -1))
-        self.search_button = wx.Button(parent=self.panel, id=4, label="go")
-        self.search_listbox = wx.ListBox(parent=self.panel,
+        self.search_button = wx.Button(parent=self, id=4, label="go")
+        self.search_listbox = wx.ListBox(parent=self,
                                          id=-1,
                                          size=(275,300),
                                          choices=[],
                                          style=wx.LB_MULTIPLE)
-        self.search_addto_button = wx.Button(parent=self.panel,
+
+        self.search_addto_button = wx.Button(parent=self,
                                              id=3,
                                              label="Add To Meal")
         self.sizer.Add(self.search_label,
@@ -220,9 +278,11 @@ class InteractivePanel(scrolled.ScrolledPanel):
                        border=0)
 
         ## Nutrient Groupings Box
-        self.nutrient_groups_label = wx.StaticText(parent=self.panel, id=-1,
+        self.nutrient_groups_label = wx.StaticText(parent=self,
+                                                   id=-1,
                                                    label="Nutrient Groupings")
-        self.nutrient_groups_listbox = wx.ListBox(parent=self.panel,
+
+        self.nutrient_groups_listbox = wx.ListBox(parent=self,
                                                   id=-1,
                                                   size=(275,155),
                                                   choices=['elements','vitamins',
@@ -233,9 +293,10 @@ class InteractivePanel(scrolled.ScrolledPanel):
                                                   style=wx.LB_MULTIPLE)
         self.nutrient_groups_listbox.Select(0) # default selections
         self.nutrient_groups_listbox.Select(1) # default selections
-        self.nutrient_groups_select_button = wx.Button(parent=self.panel,
+        self.nutrient_groups_select_button = wx.Button(parent=self,
                                                        id=1,
                                                        label="Use Selected")
+
         self.sizer.Add(self.nutrient_groups_label,
                        pos=(15,5),
                        flag=wx.ALIGN_LEFT,
@@ -257,12 +318,14 @@ class InteractivePanel(scrolled.ScrolledPanel):
     def OnRemoveSelected(self, event):
         print 'OnRemoveSelected'
         to_remove_indexes = self.current_meal_listbox.GetSelections()
-        to_remove_strings = self.current_meal_listbox.GetStrings()
+        to_remove_raw = self.current_meal_listbox.GetStrings()
+        to_remove_strings = [x.split('--')[1] for x in to_remove_raw]
         names = [to_remove_strings[i] for i in to_remove_indexes]
         for food_name in names:
             self.current_meal.subtract(food_name)
-        self.current_meal_listbox.Set(self.current_meal.get_foods())
-        self.DisplayFieldValues()
+        self.current_meal_listbox.Set(self.current_meal.get_servings_and_foods())
+        #self.DisplayFieldValues()
+        self.DisplayNutritionalGridValues()
             
     def OnAddToMeal(self, event):
         to_add_indexes = self.search_listbox.GetSelections()
@@ -271,17 +334,25 @@ class InteractivePanel(scrolled.ScrolledPanel):
         for food_name in names:
             new_food = perfmeal.get_food(food_name)
             self.current_meal.add(new_food)
-        self.current_meal_listbox.Set(self.current_meal.get_foods())
-        self.DisplayFieldValues()
+        self.current_meal_listbox.Set(self.current_meal.get_servings_and_foods())
+        #self.DisplayFieldValues()
+
+        self.DisplayNutritionalGridValues()
             
     def OnUseSelected(self, event):
         #nutrient groupings
         if self.GetNutrientGroups() == self.nutritional_groupings:
             return # groupings haven't changed, do nothing
-        self.DestroyFields()
-        self.AddFields()
+        #self.DestroyFields()
+        #self.AddFields()
         self.sizer.Layout()
-        self.DisplayFieldValues()
+        #self.DisplayFieldValues()
+
+        self.ResetNutritionalGrid()
+##        self.AddNutritionalGrid()
+##        self.DisplayNutritionalGridValues()
+##        self.nutritional_grid.ForceRefresh()
+        
     def OnCurrentMealLBSelected(self, event):
         pass
     def OnSearchLBSelected(self, event):
@@ -293,7 +364,6 @@ class InteractivePanel(scrolled.ScrolledPanel):
         indexes = self.nutrient_groups_listbox.GetSelections()
         choices=['elements','vitamins','energy', 'sugars','amino_acids',
                  'other','composition']
-        print 'get nutrient groups:', [choices[i] for i in indexes]
         return [choices[i] for i in indexes]
 
     def populate_fields(self, name=None, meal=None, foods=None):
@@ -362,6 +432,7 @@ class MainWindow(wx.Frame):
 app = wx.App()
 MainWindow(None, title="Perfect Meal")
 app.MainLoop()
+
 
 
 
