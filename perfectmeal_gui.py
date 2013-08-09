@@ -27,43 +27,11 @@ import wx.lib.scrolledpanel as scrolled
 import perfectmeal as perfmeal
 
 class NutrientGridDataTable(wx.grid.PyGridTableBase):
-    def __init__(self):
+    def __init__(self, view):
         super(NutrientGridDataTable, self).__init__()
         self.data = []
         self.row_titles = []
-
-####    def ResetView(self):
-####        """Trim/extend the control's rows and update all values"""
-####        ## copy/pasted from http://wiki.wxpython.org/wxGrid#Changing_Size.2BAC8-Shape_of_Grid.2BAC8-Table
-####        #self.getGrid().BeginBatch()
-####        for current, new, delmsg, addmsg in [
-####            (self.currentRows, self.GetNumberRows(), wxGRIDTABLE_NOTIFY_ROWS_DELETED, wxGRIDTABLE_NOTIFY_ROWS_APPENDED),
-####            (self.currentColumns, self.GetNumberCols(), wxGRIDTABLE_NOTIFY_COLS_DELETED, wxGRIDTABLE_NOTIFY_COLS_APPENDED),
-####            ]:
-####            if new < current:
-####                msg = wxGridTableMessage(
-####                    self,
-####                    delmsg,
-####                    new,    # position
-####                    current-new,
-####                    )
-####                #self.getGrid().ProcessTableMessage(msg)
-####            elif new > current:
-####                msg = wxGridTableMessage(
-####                self,
-####                    addmsg,
-####                    new-current
-####                    )
-####                #self.getGrid().ProcessTableMessage(msg)
-####                self.UpdateValues()
-####                self.getGrid().EndBatch()
-####                
-####                # The scroll bars aren't resized (at least on windows)
-####                # Jiggling the size of the window rescales the scrollbars
-####                h,w = grid.GetSize()
-####                grid.SetSize((h+1, w))
-####                grid.SetSize((h, w))
-####                grid.ForceRefresh()
+        self.view = view
 
     def SetParent(self, parent):
         print 'setting parent'
@@ -107,6 +75,7 @@ class NutrientGridDataTable(wx.grid.PyGridTableBase):
         return self.data[row][col]
     def SetValue(self, row, col, value):
         pass
+    
 
 class InteractivePanel(scrolled.ScrolledPanel):
     ## Essentially everything except the menubar, menu items, etc.
@@ -116,7 +85,6 @@ class InteractivePanel(scrolled.ScrolledPanel):
         self.current_meal = perfmeal.get_meal([])
 
         self.BuildUI()
-        self.SetAutoLayout(1)
         self.SetupScrolling()
         
         self.Show()
@@ -125,7 +93,6 @@ class InteractivePanel(scrolled.ScrolledPanel):
         self.sizer = wx.GridBagSizer(hgap=5, vgap=5)
 
         self.AddListboxes()
-        #self.AddFields()
         self.AddNutritionalGrid()
         self.BindButtonsEtc()
         
@@ -140,8 +107,9 @@ class InteractivePanel(scrolled.ScrolledPanel):
         self.Bind(wx.EVT_BUTTON, self.OnGo, id=4)
 
     def MakeNutritionalGridDataTable(self):
-        """ Creates the data backend for the Nutritional Grid """
-        self.nutr_grid_data = NutrientGridDataTable()
+        """ Creates the data backend for the Nutritional Grid
+            Called by AddNutritionalGrid (only)"""
+        self.nutr_grid_data = NutrientGridDataTable(view=self.nutritional_grid)
         self.nutr_grid_data.SetParent(self) # so it can freely access local data
         self.min_vals, self.max_vals = \
                        perfmeal.get_benchmarks()
@@ -149,16 +117,15 @@ class InteractivePanel(scrolled.ScrolledPanel):
         
     def AddNutritionalGrid(self):
         """ Creates the Nutritional Grid """
-        ## new way of displaying meal nutrients
         #self.nutr_grid_panel = wx.Panel(parent=self)
+        self.nutritional_grid = wx.grid.Grid(self)
         self.MakeNutritionalGridDataTable()
         
         self.nutritional_groupings = self.GetNutrientGroups()
         rows = self.nutr_grid_data.GetNumberRows()
         columns = self.nutr_grid_data.GetNumberCols()
         
-        #self.nutritional_grid = wx.grid.Grid(self.nutr_grid_panel)
-        self.nutritional_grid = wx.grid.Grid(self)
+        
         self.nutritional_grid.CreateGrid(rows, columns)
         self.nutritional_grid.SetRowLabelSize(self.nutr_grid_data.GetRowLabelSize())
         self.nutritional_grid.SetColLabelValue(0,'current')
@@ -166,10 +133,6 @@ class InteractivePanel(scrolled.ScrolledPanel):
         self.nutritional_grid.SetColLabelValue(2,'max')
 
         self.DisplayNutritionalGridValues()
-        
-        #self.nutr_grid_sizer = wx.BoxSizer(wx.VERTICAL)
-        #self.nutr_grid_sizer.Add(self.nutritional_grid,100,wx.EXPAND)
-        #self.nutr_grid_panel.SetSizer(self.nutr_grid_sizer)
 
         self.sizer.Add(self.nutritional_grid,
                        pos=(0,0),
@@ -183,6 +146,7 @@ class InteractivePanel(scrolled.ScrolledPanel):
         
     def DisplayNutritionalGridValues(self):
         """ Populates the Nutritional Grid"""
+        print "DisplayNutritionalGridValues"
         self.nutr_grid_data.RefreshData()
         rows = self.nutr_grid_data.GetNumberRows()
         columns = self.nutr_grid_data.GetNumberCols()
@@ -190,8 +154,7 @@ class InteractivePanel(scrolled.ScrolledPanel):
             for j in range(columns):
                 self.nutritional_grid.SetCellValue(i,
                                                    j,
-                                                   str(self.nutr_grid_data.GetValue(i,
-                                                                                j)))
+                                                   str(self.nutr_grid_data.GetValue(i,j)))
         for i in range(rows):
             self.nutritional_grid.SetRowLabelValue(i,
                                                    str(self.nutr_grid_data.GetRowLabel(i)))
@@ -206,12 +169,9 @@ class InteractivePanel(scrolled.ScrolledPanel):
                                                               highlight)
 
     def ResetNutritionalGrid(self):
-        print 'reset called'
+        """ Destroys old grid and creates a new one..."""
         self.RemoveNutritionalGrid()
         self.AddNutritionalGrid()
-##        self.nutritional_grid.ForceRefresh()
-##        self.nutr_grid_sizer.Layout()
-##        self.sizer.Layout()
         
     def AddListboxes(self):
         ## current meal
@@ -324,8 +284,9 @@ class InteractivePanel(scrolled.ScrolledPanel):
         for food_name in names:
             self.current_meal.subtract(food_name)
         self.current_meal_listbox.Set(self.current_meal.get_servings_and_foods())
-        #self.DisplayFieldValues()
-        self.DisplayNutritionalGridValues()
+
+        #self.DisplayNutritionalGridValues()
+        self.ResetNutritionalGrid() # see notes in OnAddToMeal()
             
     def OnAddToMeal(self, event):
         to_add_indexes = self.search_listbox.GetSelections()
@@ -335,23 +296,19 @@ class InteractivePanel(scrolled.ScrolledPanel):
             new_food = perfmeal.get_food(food_name)
             self.current_meal.add(new_food)
         self.current_meal_listbox.Set(self.current_meal.get_servings_and_foods())
-        #self.DisplayFieldValues()
-
-        self.DisplayNutritionalGridValues()
+        #self.DisplayNutritionalGridValues()
+        #### **** SPENT TOO MUCH TIME TRYING TO GET THE GRID TO UPDATE
+        #### **** GRACEFULLY, SO NOW I'M DESTROYING IT ANY TIME IT NEEDS
+        #### **** TO UPDATE ITS VALUES.  TOTAL WORKAROUND.
+        self.ResetNutritionalGrid() # DESTROYS AND RECREATES THE GRID
             
     def OnUseSelected(self, event):
         #nutrient groupings
         if self.GetNutrientGroups() == self.nutritional_groupings:
             return # groupings haven't changed, do nothing
-        #self.DestroyFields()
-        #self.AddFields()
         self.sizer.Layout()
-        #self.DisplayFieldValues()
-
+        self.DisplayNutritionalGridValues()
         self.ResetNutritionalGrid()
-##        self.AddNutritionalGrid()
-##        self.DisplayNutritionalGridValues()
-##        self.nutritional_grid.ForceRefresh()
         
     def OnCurrentMealLBSelected(self, event):
         pass
