@@ -27,7 +27,7 @@
 ####		daily_min, daily_max 
 ####		various data for the program
 ####	
-####	JSON Considerations (pseudo JSON, really)
+####	JSON Considerations
 ####		Food_Group_Filter
 ####		Name_Filter
 ####		open JSON file
@@ -36,23 +36,25 @@
 ####	Making Food objects and lists of Food objects
 ####		(isolates the algorithms from JSON considerations)
 ####
-####	Searching Algorithms (moved to meal_buildinig.py)
+####	Searching Algorithms (moved to meal_building.py)
 ####		brute force (to-do)
 ####		Greedy algorithms
 ####			based on Comparators (balance returns a "valid" result)
 ####
-####    GUI Specific Methods
+####    GUI Specific Methods (interface for perfectmeal_gui.py)
 ####            get_fields()
 ####
-
-#############################################################################
-##################### class structure (data types) ##########################
-#############################################################################
 
 debugging = False
 
 import copy
 import string
+import json
+import os # to find current directory (to find the json database)
+
+#############################################################################
+##################### class structure (data types) ##########################
+#############################################################################
 
 class Food(object):
     def __init__(self, nutritional_groupings, json_obj=None, name=None):
@@ -165,7 +167,7 @@ class Food(object):
         serv_size_conv_fact = self.serving_size/100. # json data is per 100g
         converter = {'g':1000., 'mg': 1., 'mcg': (1/1000.)} # normalize to mg
         serving_size = json_object['portions']
-        print 'serving_size, self.serving_size', serving_size, self.serving_size
+        #print 'serving_size, self.serving_size', serving_size, self.serving_size
         
         for nutr_group in self.nutritional_groupings:
             for nutrient in json_object['nutrients']:
@@ -235,11 +237,12 @@ class Meal(Food):
     ## foods contained in the meal
     ## self.foods is optional since benchmark meals (daily min and max, etc)
     ## are also of this class
-    def __init__(self, nutritional_groupings, food=None):
+    def __init__(self, nutritional_groupings, foods=None):
         Food.__init__(self, nutritional_groupings)
         self.foods = []
-        if food is not None:
-            self.add(food)
+        if foods is not None:
+            for food in foods:
+                self.add(food)
     def _add_helper(self, first, second):
         # needed to deal with the default None's
         # used by add (only)
@@ -368,7 +371,8 @@ def display_nutrients(food, min_meal, max_meal):
     """ Displays the nutritional contents of 3 meals.
         """
     ## you can put any three meals in here and they'll print in order
-    #print 'display nutrients method: food:', food
+    ## ideal for food, min_meal, max_meal.  the GUI will do this now, but in
+    ## case you want to see it in text...this is here
     print ''
     print 'Food/Meal Object: ', food.name
     for g in food.nutritional_groupings: # nutrient groupings (elements, vitamins, etc)
@@ -425,6 +429,23 @@ def make_daily_min(groupings):
         daily_min.vitamins['Folate, total'] = .4 
         daily_min.vitamins['Vitamin B-12'] = .0024
         daily_min.vitamins['Vitamin K (phylloquinone)'] = .12
+    if 'amino_acids' in groupings:
+        # assumed to be per 100kg, source for Proof Of Concept from
+        # http://en.wikipedia.org/wiki/Essential_amino_acid#Recommended_daily_amounts
+        # Methionine+Cysteine and Phenylalanine+Tyrosine were broken up,
+        # although they are substitutes for eachother.  These are in a sense
+        # dummy values!!!
+        daily_min.amino_acids['Lysine'] = 3000
+        daily_min.amino_acids['Phenylalanin'] = 1250
+        daily_min.amino_acids['Leucine'] = 3900
+        daily_min.amino_acids['Methionine'] = 750
+        daily_min.amino_acids['Histidine'] = 1000
+        daily_min.amino_acids['Valine'] = 2600
+        daily_min.amino_acids['Tryptophan'] = 400
+        daily_min.amino_acids['Isoleucine'] = 2000
+        daily_min.amino_acids['Threonine'] = 1500
+        daily_min.amino_acids['Cystine'] = 750
+        daily_min.amino_acids['Tyrosine'] = 1250 
     return daily_min
 
 def make_daily_max(groupings):
@@ -455,6 +476,29 @@ def make_daily_max(groupings):
         daily_max.vitamins['Vitamin B-12'] = 999999.
         daily_max.vitamins['Vitamin K (phylloquinone)'] = 999999. 
     return daily_max
+
+
+amino_acid_per_mass = {'Lysine': 3000, 'Alanine': None,
+                                'Glycine': None, 'Proline': None, 'Serine': None,
+                                'Arginine': None, 'Glutamic acid': None,
+                                'Phenylalanine': 1250, 'Leucine': 3900,
+                                'Methionine': 750, 'Histidine': 1000,
+                                'Valine': 2600, 'Tryptophan': 400,
+                                'Isoleucine': 2000, 'Threonine': 1500,
+                                'Aspartic acid': None, 'Cystine': 750,
+                                'Tyrosine': 1250}
+
+def add_amino_acids_to_min(daily_min, body_weight):
+    # body_weight is assumed to be in kilograms
+    for element in daily_min.amino_acids:
+        daily_min.amino_acids[element] = amino_acid_per_mass[element] * \
+                                         (body_weight / 100)
+    return daily_min
+    
+def add_amino_acids_to_max(daily_max, body_weight):
+    # no max info at this time
+    pass
+    
 
 #############################################################################
 ########################### JSON considerations #############################
@@ -601,9 +645,10 @@ def get_food_from_group_by_name(group_filter, name):
 ## JSON data
 ## 
 
-import json
-jsonfile = open("/home/james/GitRepos/perfect_diet/database/json/foods-2011-10-03.json",
-                "r")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+json_loc = current_dir + "/database/json/foods-2011-10-03.json"
+jsonfile = open(json_loc, "r")
+
 db_tuple = tuple(json.load(jsonfile)) # tuple to prevent mutation
 
 def get_filtered_object_count(the_filter):
@@ -694,13 +739,14 @@ def get_food_objects(food_group_filter=Food_Group_Filter(),
     obj_list = get_objects_by_group_and_name(food_group_filter, name_filter)
     return [Food(nutrient_group_filter, obj) for obj in obj_list]
 
-def get_foods_for_objects(objects, nutrient_groups=['vitamins', 'elements']):
+def get_foods_for_objects(objects, nutrient_groups=['vitamins', 'elements',
+                                                    'amino_acids']):
     return [Food(nutrient_groups, obj) for obj in objects]
 
 def get_food_with_name(food_name, nutrient_groups=None):
     ######## rewrite
     if nutrient_groups == None:
-        nutrient_groups = ['elements', 'vitamins']
+        nutrient_groups = ['elements', 'vitamins', 'amino_acids']
     the_object = get_object_by_name(food_name)
     if the_object is not False:
         return Food(nutrient_groups, the_object)
@@ -711,6 +757,9 @@ def get_food_with_name(food_name, nutrient_groups=None):
 #############################################################################
 ############################## GUI Specific #################################
 #############################################################################
+
+## all GUI communication with what's above thie line takes place below this line
+## (except for methods included in Meal and Food objects)
 
 def get_fields(nutritional_groupings=['elements', 'vitamins', 'energy',
                                       'sugars', 'amino_acids', 'other',
