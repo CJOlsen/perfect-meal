@@ -98,15 +98,17 @@ class InteractivePanel(scrolled.ScrolledPanel):
         self.parent = parent
         self.current_meal = perfmeal.get_meal([])
         self.body_weight = 150
+
+        self.ShowWarning() # show disclaimer
         
         self.BuildUI()
         self.SetSizer(self.sizer)
         self.SetAutoLayout(1)
         self.SetupScrolling()
+        self.sizer.Layout()
         
         self.Show()
-
-        self.ShowWarning() # show disclaimer
+        
 
     def BuildUI(self):
         self.sizer = wx.GridBagSizer(hgap=5, vgap=5)
@@ -194,9 +196,13 @@ project will be handled."
         columns = self.nutr_grid_data.GetNumberCols()
         for i in range(rows):
             for j in range(columns):
-                self.nutritional_grid.SetCellValue(i,
-                                                   j,
-                                                   str(self.nutr_grid_data.GetValue(i,j)))
+                try:
+                    # this throws an error on windows machines (not Debian)
+                    self.nutritional_grid.SetCellValue(i,
+                                                       j,
+                                                       str(self.nutr_grid_data.GetValue(i,j)))
+                except:
+                    pass
         for i in range(rows):
             self.nutritional_grid.SetRowLabelValue(i,
                                                    str(self.nutr_grid_data.GetRowLabel(i)))
@@ -440,7 +446,8 @@ then the search was (probably) successful.  Continue?'
         
 class MainWindow(wx.Frame):
     def __init__(self, parent, title):
-        wx.Frame.__init__(self, parent, title=title, size=(1150,750))
+        # width at least 1200 on Windows 7 and 1150 on Debian
+        wx.Frame.__init__(self, parent, title=title, size=(1200,750))
         
         # setting up the file menu
         filemenu = wx.Menu()

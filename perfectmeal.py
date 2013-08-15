@@ -51,6 +51,7 @@ import copy
 import string
 import json
 import os # to find current directory (to find the json database)
+import sys # same, used if the os method fails
 
 #############################################################################
 ##################### class structure (data types) ##########################
@@ -645,7 +646,11 @@ def get_food_from_group_by_name(group_filter, name):
 ## JSON data
 ## 
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
+try:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+except:
+    current_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    
 json_loc = current_dir + "/database/json/foods-2011-10-03.json"
 jsonfile = open(json_loc, "r")
 

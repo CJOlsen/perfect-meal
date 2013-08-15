@@ -40,7 +40,7 @@ def greedy_alg(min_meal, max_meal, servings, food_groups, nutrient_groups,
         seed_name: list of names used as a seed
         seed_meal: meal to be used as a seed
         names: (???) optional list of food names, filters the JSON objects             """
-    print 'Greedy Algorithm Beginning, comparator is:', comparator.__name__
+    #print 'Greedy Algorithm Beginning, comparator is:', comparator.__name__
     foods = perfect_meal.get_food_objects(food_groups,
                                           perfect_meal.Name_Filter(names),
                              nutrient_groups)
