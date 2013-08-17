@@ -47,6 +47,7 @@
 
 debugging = False
 
+import ackpl # the Arbitrary Constraint Knapsack Problem Library
 import copy
 import string
 import json
@@ -121,7 +122,7 @@ class Food(object):
                                 'Valine': None, 'Tryptophan': None,
                                 'Isoleucine': None, 'Threonine': None,
                                 'Aspartic acid': None, 'Cystine': None,
-                                'Tyrosine': None}
+                                'Tyrosine': None, 'Hydroxyproline': None}
         if 'other' in self.nutritional_groupings:
             self.other = {'Alcohol, ethyl': None, 'Stigmasterol': None,
                           'Fatty acids, total trans-monoenoic': None,
@@ -206,6 +207,42 @@ class Food(object):
             for item_name in self.__dict__[group]:
                 if item_name == name:
                     print "Name:", name, " Value: ", self.__dict__[group][name]
+
+    def flatten(self):
+        """ Flattens the active nutritional groupings into one dictionary."""
+        flat = {}
+        for group in self.nutritional_groupings:
+            first_dict = flat.items()
+            second_dict = self.__dict__[group].items()
+            flat = dict(first_dict + second_dict)
+            #flat = dict(flat.items() + self[group].items())
+        return flat
+    
+    @classmethod
+    def unflatten(cls,dictionary):
+        """ Unflattens the food.  Actually creates a new Food object and populates
+            its values from the provided dictionary. """
+        ## this is super messy, needs to be cleaned up
+        keys = dictionary.keys()
+        # create the food with all nutritional groups
+        new_food = Food(['elements', 'vitamins', 'energy', 'sugars',
+                         'amino_acids', 'other', 'composition'])
+        # populate the nutritional groups
+        for group in new_food.nutritional_groupings:
+            for item_name in new_food.__dict__[group]:
+                if item_name in dictionary.keys():
+                    new_food.__dict__[group][item_name] = dictionary[item_name]
+        # remove the extra nutritional groups (not clear or efficient)
+        for group in new_food.nutritional_groupings:
+            if set(new_food.__dict__[group].keys()) <= set(dictionary.keys()):
+                # the nutritional group's keys are all in the dictionary
+                pass
+            else:
+                del new_food.__dict__[group]
+        new_food.serving_size = 100 # debugging workaround
+        new_food.name = 'Nameless, man, no names'
+        return new_food
+            
     def get_val(self, group, item):
         ## hacky way to deal with the 'null' meal
         try:
@@ -437,7 +474,7 @@ def make_daily_min(groupings):
         # although they are substitutes for eachother.  These are in a sense
         # dummy values!!!
         daily_min.amino_acids['Lysine'] = 3000
-        daily_min.amino_acids['Phenylalanin'] = 1250
+        daily_min.amino_acids['Phenylalanine'] = 1250
         daily_min.amino_acids['Leucine'] = 3900
         daily_min.amino_acids['Methionine'] = 750
         daily_min.amino_acids['Histidine'] = 1000
@@ -446,7 +483,8 @@ def make_daily_min(groupings):
         daily_min.amino_acids['Isoleucine'] = 2000
         daily_min.amino_acids['Threonine'] = 1500
         daily_min.amino_acids['Cystine'] = 750
-        daily_min.amino_acids['Tyrosine'] = 1250 
+        daily_min.amino_acids['Tyrosine'] = 1250
+        daily_min.amino_acids['Hydroxyproline'] = 5 
     return daily_min
 
 def make_daily_max(groupings):
@@ -815,3 +853,25 @@ def search_like(search_string):
     else:
         return search_many(search_list)
 
+def complete_meal(current_meal, min_meal, max_meal, algorithm):
+    """ Acts as a go-between for the GUI and ackpl.py
+        Returns a "completed" meal, completed either because it violated a max
+        constraint or because it satisfied all of its min constraints.
+        """
+    identifiers = current_meal.flatten().keys()
+    all_foods = get_food_objects(nutrient_group_filter=current_meal.nutritional_groupings)
+    possibilities = [food.flatten() for food in all_foods]
+    minimums = min_meal.flatten()
+    maximums = max_meal.flatten()
+    currents = [food.flatten() for food in current_meal.foods]
+    #algorithm = algorithm
+    
+    completed_flat = ackpl.ackp(identifiers, possibilities, minimums, maximums, 
+                                currents, algorithm)
+    if completed_flat is None:
+        return None
+    if type(completed_flat) is not list:
+        return completed_flat ## maybe?
+    foods = [Food.unflatten(food) for food in completed_flat]
+    new_meal = Meal(foods[0].nutritional_groupings, foods)
+    return new_meal

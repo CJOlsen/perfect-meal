@@ -98,6 +98,7 @@ class InteractivePanel(scrolled.ScrolledPanel):
         self.parent = parent
         self.current_meal = perfmeal.get_meal([])
         self.body_weight = 150
+        self.min_vals, self.max_vals = None, None
 
         self.ShowWarning() # show disclaimer
         
@@ -401,7 +402,6 @@ NOW!))" % (self.body_weight)
 
     def OnCompleteMeal(self, event):
         ## display popup
-
         text = 'This button attempts to round out your currently selected meal. \
 It may take a while, it may fail.  Searching a database of 6,500+ foods for \
 ones that will complement the current nutritional profile is time intensive.  \
@@ -419,8 +419,13 @@ then the search was (probably) successful.  Continue?'
 ##        except:
 ##            print 'OnCompleteMeal error.', sys.exc_info()[0]
         
-        new_meal = meal_building.greedy_finish_with_meal(self.current_meal)
-        self.current_meal = new_meal
+        #new_meal = meal_building.greedy_finish_with_meal(self.current_meal)
+        new_meal = perfmeal.complete_meal(self.current_meal, self.min_vals,
+                                          self.max_vals, "greedy_balance")
+        if new_meal != None:
+            self.current_meal = new_meal
+        else:
+            print 'new_meal is None'
         self.current_meal_listbox.Set(self.current_meal.get_servings_and_foods())
         self.DisplayNutritionalGridValues()
         self.ResetNutritionalGrid()
