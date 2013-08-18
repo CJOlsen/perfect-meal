@@ -219,14 +219,14 @@ class Food(object):
         return flat
     
     @classmethod
-    def unflatten(cls,dictionary):
+    def unflatten(cls, dictionary, name):
         """ Unflattens the food.  Actually creates a new Food object and populates
             its values from the provided dictionary. """
         ## this is super messy, needs to be cleaned up
         keys = dictionary.keys()
         # create the food with all nutritional groups
         new_food = Food(['elements', 'vitamins', 'energy', 'sugars',
-                         'amino_acids', 'other', 'composition'])
+                         'amino_acids', 'other', 'composition'], name=name)
         # populate the nutritional groups
         for group in new_food.nutritional_groupings:
             for item_name in new_food.__dict__[group]:
@@ -239,8 +239,6 @@ class Food(object):
                 pass
             else:
                 del new_food.__dict__[group]
-        new_food.serving_size = 100 # debugging workaround
-        new_food.name = 'Nameless, man, no names'
         return new_food
             
     def get_val(self, group, item):
@@ -852,26 +850,36 @@ def search_like(search_string):
         return search_by_name(search_string)
     else:
         return search_many(search_list)
+    
 
 def complete_meal(current_meal, min_meal, max_meal, algorithm):
     """ Acts as a go-between for the GUI and ackpl.py
         Returns a "completed" meal, completed either because it violated a max
         constraint or because it satisfied all of its min constraints.
         """
-    identifiers = current_meal.flatten().keys()
     all_foods = get_food_objects(nutrient_group_filter=current_meal.nutritional_groupings)
-    possibilities = [food.flatten() for food in all_foods]
-    minimums = min_meal.flatten()
-    maximums = max_meal.flatten()
-    currents = [food.flatten() for food in current_meal.foods]
+    #possibilities = [[food.get_name(), food.flatten()] for food in all_foods]
+    possibilities = []
+    serving_sizes = {}
+    for food in all_foods:
+        serving_sizes[food.get_name()] = food.serving_size
+        possibilities.append([food.get_name(), food.flatten()])
+    minimums = ('minimums', min_meal.flatten())
+    maximums = ('maximums', max_meal.flatten())
+    currents = [[food.name, food.flatten()] for food in current_meal.foods]
     #algorithm = algorithm
-    
-    completed_flat = ackpl.ackp(identifiers, possibilities, minimums, maximums, 
-                                currents, algorithm)
+
+    completed_flat = ackpl.ackp(possibilities, minimums, maximums, currents, 
+                                algorithm)
     if completed_flat is None:
         return None
     if type(completed_flat) is not list:
         return completed_flat ## maybe?
-    foods = [Food.unflatten(food) for food in completed_flat]
+    foods = []
+    for food in completed_flat:
+        new_food = Food.unflatten(food[1], food[0])
+        new_food.serving_size = serving_sizes[new_food.get_name()]
+        foods.append(new_food)
+    print 'number foods', len(foods)
     new_meal = Meal(foods[0].nutritional_groupings, foods)
     return new_meal

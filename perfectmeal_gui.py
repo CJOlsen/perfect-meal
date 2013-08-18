@@ -22,7 +22,7 @@ import wx
 import wx.grid
 import wx.lib.scrolledpanel as scrolled
 import perfectmeal as perfmeal
-import meal_building
+#import meal_building
 import sys # sys is only used for one try/except loop, can easily be disabled
 
 class NutrientGridDataTable(wx.grid.PyGridTableBase):
