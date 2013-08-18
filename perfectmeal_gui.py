@@ -149,7 +149,8 @@ project will be handled."
         self.Bind(wx.EVT_BUTTON, self.OnAddToMeal, id=3)
         self.Bind(wx.EVT_BUTTON, self.OnGo, id=4)
         self.Bind(wx.EVT_BUTTON, self.OnCompleteMeal, id=500) #choose better id
-
+        self.Bind(wx.EVT_BUTTON, self.OnUseSelectedFoodgroups, id=700)
+        
     def MakeNutritionalGridDataTable(self):
         """ Creates the data backend for the Nutritional Grid
             Called by AddNutritionalGrid (only)"""
@@ -236,7 +237,24 @@ NOW!))" % (self.body_weight)
         dialog = wx.TextEntryDialog(None, text, "Amino Acid Profile Helper", " ")
         if dialog.ShowModal() == wx.ID_OK:
             self.body_weight = int(dialog.GetValue())
-        
+
+##    def _add_current_meal_lb(self):
+##        current_meal_label = wx.StaticText(parent=self.panel,
+##                                           label="Current Meal")
+##        self.current_meal_listbox = wx.ListBox(parent=self.panel,
+##                                               id=-1,
+##                                               pos=(3,5),
+##                                               size=(275,375),
+##                                               choices=[],
+##                                               style=wx.LB_MULTIPLE)
+##        self.current_meal_delete_button = wx.Button(parent=self.panel,
+##                                                    id=2,
+##                                                    label='Remove Selected')
+##        
+##        self.current_meal_complete_button = wx.Button(parent=self.panel,
+##                                                      id=500,
+##                                                      label='Complete Meal (testing)')
+
     def AddListboxes(self):
         """ Add the 3 listboxes and their buttons, as well as the search field.
             """
@@ -252,9 +270,18 @@ NOW!))" % (self.body_weight)
         self.current_meal_delete_button = wx.Button(parent=self.panel,
                                                     id=2,
                                                     label='Remove Selected')
+        
         self.current_meal_complete_button = wx.Button(parent=self.panel,
                                                       id=500,
-                                                      label='Complete Meal (testing)')
+                                                      label='Complete Meal')
+
+        self.complete_meal_alg_dropdown = wx.ComboBox(parent=self.panel,
+                                                      id=501,
+                                                      size=(160,-1),
+                                                      value="Available algorithms",
+                                                      choices=perfmeal.get_available_algs(),
+                                                      style=wx.CB_READONLY)
+                                                      
         self.sizer.Add(current_meal_label,
                        pos=(0,5),
                        flag=wx.TOP|wx.LEFT|wx.BOTTOM|wx.ALIGN_LEFT,
@@ -268,11 +295,20 @@ NOW!))" % (self.body_weight)
                        pos=(13,5),
                        flag=wx.ALIGN_RIGHT,
                        border=0)
-        ## make a sizer so this button can be to the left of 'remove selected'
-        self.sizer.Add(self.current_meal_complete_button,
+        self.complete_meal_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.complete_meal_sizer.Add(self.complete_meal_alg_dropdown,
+                                     flag=wx.ALIGN_CENTER,
+                                     border=0)
+        self.complete_meal_sizer.Add(self.current_meal_complete_button,
+                                     flag=wx.ALIGN_CENTER,
+                                     border=0)
+        
+        self.sizer.Add(self.complete_meal_sizer,
                        pos=(14,5),
                        flag=wx.ALIGN_RIGHT,
-                       border=0)
+                       border=5)
+        
         
 
         ## search boxes
@@ -348,10 +384,43 @@ NOW!))" % (self.body_weight)
                        pos=(21,5),
                        flag=wx.ALIGN_RIGHT,
                        border=0)
+
+        ## Food groups listbox
+        self.food_groups_label = wx.StaticText(parent=self.panel,
+                                               id=-1,
+                                               label="Food groups (all selected by default)")
+        self.possible_food_groups = perfmeal.get_all_foodgroups()
+        self.food_groupings = self.possible_food_groups
+        self.food_groups_listbox = wx.ListBox(parent=self.panel,
+                                              id=-1,
+                                              size=(275,155),
+                                              choices=self.possible_food_groups,
+                                              style=wx.LB_MULTIPLE)
+        self.food_groups_select_button = wx.Button(parent=self.panel,
+                                                   id=700,
+                                                   label="Use Selected")
+        # start with all selected
+        for i in range(len(self.possible_food_groups)):
+            self.food_groups_listbox.Select(i)
+        self.sizer.Add(self.food_groups_label,
+                       pos=(15,6),
+                       flag=wx.ALIGN_LEFT,
+                       border=5)
+        self.sizer.Add(self.food_groups_listbox,
+                       pos=(16,6),
+                       span=(5,1),
+                       border=5)
+        self.sizer.Add(self.food_groups_select_button,
+                       pos=(21,6),
+                       flag=wx.ALIGN_RIGHT,
+                       border=0)
+                                                   
+        
     def OnGo(self, event):
         # go is the search button
         text = self.search_textbox.GetValue()
-        names = perfmeal.search_like(text)
+        print 'food groups', self.food_groupings
+        names = perfmeal.search_like(text, self.food_groupings)
         self.search_listbox.Set(names)
         
     def OnRemoveSelected(self, event):
@@ -391,6 +460,10 @@ NOW!))" % (self.body_weight)
             self.ShowBodyWeightMessage()
         self.DisplayNutritionalGridValues()
         self.ResetNutritionalGrid()
+
+    def OnUseSelectedFoodgroups(self, event):
+        # food groupings listbox action
+        self.food_groupings = self.GetFoodGroups()
         
     def OnCurrentMealLBSelected(self, event):
         ## these are stubs for capturing listbox selection actions (future?)
@@ -413,15 +486,27 @@ then the search was (probably) successful.  Continue?'
                                   wx.OK | wx.CANCEL | wx.ICON_INFORMATION)
         if dialog.ShowModal() == wx.ID_CANCEL:
             return
-##        try:
-##            new_meal = meal_building.greedy_finish_with_meal(self.current_meal)
-##            self.current_meal = new_meal
-##        except:
-##            print 'OnCompleteMeal error.', sys.exc_info()[0]
+
+        cur_alg = self.complete_meal_alg_dropdown.GetValue()
+        if cur_alg == "Available algorithms":
+            no_alg_dialog = wx.MessageDialog(None,
+                                             'Please choose an algorithm',
+                                             'Error',
+                                             wx.OK | wx.ICON_INFORMATION)
+            if no_alg_dialog.ShowModal():
+                return
+        if len(self.current_meal.foods) < 1:
+            no_food_dialog = wx.MessageDialog(None,
+                                             'Please choose at least one food',
+                                             'Error',
+                                             wx.OK | wx.ICON_INFORMATION)
+            if no_food_dialog.ShowModal():
+                return
+        print 'self.GetFoodGroups()', self.GetFoodGroups()
         
-        #new_meal = meal_building.greedy_finish_with_meal(self.current_meal)
         new_meal = perfmeal.complete_meal(self.current_meal, self.min_vals,
-                                          self.max_vals, "greedy_balance")
+                                          self.max_vals, cur_alg,
+                                          self.GetFoodGroups())
         if new_meal != None:
             self.current_meal = new_meal
         else:
@@ -435,6 +520,10 @@ then the search was (probably) successful.  Continue?'
         choices=['elements','vitamins','energy', 'sugars','amino_acids',
                  'other','composition']
         return [choices[i] for i in indexes]
+
+    def GetFoodGroups(self):
+        indexes = self.food_groups_listbox.GetSelections()
+        return [self.possible_food_groups[i] for i in indexes]
         
 ##Button and listbox ID's: (these may not be current anymore)
 ##  Current Meal Listbox:

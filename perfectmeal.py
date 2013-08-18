@@ -692,6 +692,34 @@ jsonfile = open(json_loc, "r")
 
 db_tuple = tuple(json.load(jsonfile)) # tuple to prevent mutation
 
+########################################
+## database in pieces, separated by food group
+def make_database_by_foodgroup():
+    food_groups = ['Dairy and Egg Products', 'Spices and Herbs', 'Baby Foods',\
+                  'Fats and Oils', 'Poultry Products', 'Soups, Sauces, and Gravies',\
+                  'Sausages and Luncheon Meats', 'Breakfast Cereals',\
+                  'Fruits and Fruit Juices', 'Pork Products',\
+                  'Vegetables and Vegetable Products', 'Nut and Seed Products',\
+                  'Beef Products', 'Beverages', 'Finfish and Shellfish Products',\
+                  'Legumes and Legume Products', 'Lamb, Veal, and Game Products',\
+                  'Baked Products', 'Snacks', 'Sweets', 'Cereal Grains and Pasta',\
+                  'Fast Foods', 'Meals, Entrees, and Sidedishes', 'Ethnic Foods',\
+                  'Restaurant Foods']
+    data_dict = {x:[] for x in food_groups}
+    for item in db_tuple:
+        data_dict[item['group']].append(item)
+    return data_dict
+
+db_by_foodgroup = make_database_by_foodgroup()
+
+def get_partial_db(food_groups):
+    total = []
+    for key in food_groups:
+        total += db_by_foodgroup[key]
+    return total
+
+########################################
+
 def get_filtered_object_count(the_filter):
     """ Counts the number of objects that can successfully be retrieved from
         the JSON database as constrained by the_filter
@@ -712,17 +740,21 @@ def get_filtered_object_names(the_filter):
             food_names.append(jdict["description"])
     return food_names
 
-def get_objects_by_group_and_name(group_filter, name_filter):
+def get_objects_by_group_and_name(food_group_filter, name_filter):
     """ Steps through the JSON database and keeps objects that satisfy the
         group and name filters' constraints.
         """
-    global db_tuple
-    assert type(group_filter) is Food_Group_Filter and \
-           type(name_filter) is Name_Filter
+    ## TODO: fix this to work with get_partial_db()
+
+    print ''
+    print 'food_group_filter and name_filter', food_group_filter, name_filter
+    print ''
+    assert type(food_group_filter) is Food_Group_Filter
+    # and type(name_filter) is Name_Filter
     objects = []
     
     for jdict in db_tuple:
-        if group_filter.check(jdict['group']) and\
+        if food_group_filter.check(jdict['group']) and\
            name_filter.check(jdict['description']):
             objects.append(jdict)
     return objects
@@ -737,21 +769,23 @@ def get_object_by_name(name):
     return False
 
 import re
-def search_by_name(word):
+def search_by_name(word, food_groups):
     matches = []
     # db_tuple is the 'global' database, (not mutated so not declared)
-    for jdict in db_tuple:
+    partial_db = get_partial_db(food_groups)
+    for jdict in partial_db:
         if re.search(word.lower(),
-                      jdict['description'].lower()) is not None:
+                     jdict['description'].lower()) is not None:
             matches.append(jdict['description'])
     return matches
 
-def search_many(word_list):
+def search_many(word_list, food_groups):
     # a fairly naive multiple term search algorithm (term grouping is not incl.)
     # counts the matches for each description, must match at least all but one
     # term in the word list
+    partial_db = get_partial_db(food_groups)
     matches = {}
-    for jdict in db_tuple: # db_tuple is the database, jdict is a json object
+    for jdict in partial_db: # partial_db is the database, jdict is a json object
         for word in word_list:
             if re.search(word.lower(),
                       jdict['description'].lower()) is not None:
@@ -777,6 +811,7 @@ def get_food_objects(food_group_filter=Food_Group_Filter(),
         objects from the JSON database and maps them into Food objects,
         returns a list of Food objects.
         """
+    print 'get_food_objects, type(name_filter', type(name_filter)
     obj_list = get_objects_by_group_and_name(food_group_filter, name_filter)
     return [Food(nutrient_group_filter, obj) for obj in obj_list]
 
@@ -843,22 +878,29 @@ def get_benchmarks(nutritional_groupings=['elements', 'vitamins', 'energy',
     return (make_daily_min(nutritional_groupings),
             make_daily_max(nutritional_groupings))
     
-def search_like(search_string):
+def search_like(search_string, food_groups):
     assert type(search_string) is unicode or type(search_string) is str
+    assert type(food_groups) is list
     search_list = search_string.split(' ')
     if len(search_list) == 1:
-        return search_by_name(search_string)
+        return search_by_name(search_string, food_groups)
     else:
-        return search_many(search_list)
+        return search_many(search_list, food_groups)
     
+def get_available_algs():
+    """ Go-between for the GUI and ackpl """
+    # this exists so perfectmeal_gui doesn't need to directy access ackpl.py
+    return ackpl.algorithm_names()
 
-def complete_meal(current_meal, min_meal, max_meal, algorithm):
+def complete_meal(current_meal, min_meal, max_meal, algorithm, food_groups):
     """ Acts as a go-between for the GUI and ackpl.py
         Returns a "completed" meal, completed either because it violated a max
         constraint or because it satisfied all of its min constraints.
         """
-    all_foods = get_food_objects(nutrient_group_filter=current_meal.nutritional_groupings)
-    #possibilities = [[food.get_name(), food.flatten()] for food in all_foods]
+    ## should this Name_Filter class be derprecated or just renamed?
+    all_foods = get_food_objects(food_group_filter=Food_Group_Filter(food_groups),
+                                 name_filter=Name_Filter(),
+                                 nutrient_group_filter=current_meal.nutritional_groupings)
     possibilities = []
     serving_sizes = {}
     for food in all_foods:
@@ -883,3 +925,8 @@ def complete_meal(current_meal, min_meal, max_meal, algorithm):
     print 'number foods', len(foods)
     new_meal = Meal(foods[0].nutritional_groupings, foods)
     return new_meal
+
+def get_all_foodgroups():
+    # pulling from a global?  this could be better...
+    return the_groups
+
