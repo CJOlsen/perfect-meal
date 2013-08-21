@@ -32,8 +32,10 @@ def ackp(possibilities, minimums, maximums=None, currents=None,
               constrained element can reach]
     currents: a list of two-tuples: [name, dictionary of constrained element 
               names and their values].  The current members of the knapsack.
-    algorithm: if the user has a preference of algorithm it can be entered here
-               currently defaults to "greedy_balance"
+    algorithm: if the user has a preference of algorithm it can be entered 
+               here
+   
+    currently defaults to "greedy_balance"
     """
     
     # quality checks (maybe add error messages)
