@@ -48,9 +48,10 @@
 debugging = False
 
 import ackpl # the Arbitrary Constraint Knapsack Problem Library
-import copy
-import string
+import threading
+from multiprocessing.pool import ThreadPool
 import json
+import re
 import os # to find current directory (to find the json database)
 import sys # same, used if the os method fails
 
@@ -70,9 +71,8 @@ class Food(object):
             If a json_obj is included the dictionaries will be populated with
             the data (as filtered by the nutritional_groupings list)
             """
-        ## For comparisons to work the nutritional_groupings list will need to be the
-        ## same for all Foods being used (one *could* add try/excepts to
-        ## the "add" method of the Meal class to "fix" this)
+        ## For comparisons to work the nutritional_groupings list will need to
+        ## be the same for all Foods being used - problematic
         self.name = name
         assert type(nutritional_groupings) is list
         self.nutritional_groupings = nutritional_groupings     
@@ -193,6 +193,7 @@ class Food(object):
     def d(self, string):
         ## d is for dictionary
         ## this gets the __dict__'s out of the algorithm layer
+        ## ** marked for deprecation or full implementation
         return self.__dict__[string]
     def display(self):
         print ''
@@ -222,7 +223,7 @@ class Food(object):
     def unflatten(cls, dictionary, name):
         """ Unflattens the food.  Actually creates a new Food object and populates
             its values from the provided dictionary. """
-        ## this is super messy, needs to be cleaned up
+        ## ** this needs to be cleaned up
         keys = dictionary.keys()
         # create the food with all nutritional groups
         new_food = Food(['elements', 'vitamins', 'energy', 'sugars',
@@ -569,6 +570,7 @@ class Food_Group_Filter(object):
     def __init__(self, name_list=None):
         ## to use initialize with a list of some or all of the keys from
         ## the dictionary below
+        ## ** this needs to be deprecated or implemented more fully
         self.d = {'Dairy and Egg Products':0, 'Spices and Herbs':0,\
              'Baby Foods':0, 'Fats and Oils':0, 'Poultry Products':0,\
              'Soups, Sauces, and Gravies':0, 'Sausages and Luncheon Meats':0,\
@@ -611,19 +613,6 @@ class Name_Filter(object):
         else:
             return False
 
-def get_all_groups():
-    """ Gathers the different food groups from the database, only used for
-        db exploration, i.e. making the group filter template.
-        """
-    global db_tuple
-    groups = []
-    error_count = 0
-    for jdict in db_tuple:
-        if jdict['group'] not in groups:
-            groups.append(jdict['group'])
-    if debugging: print error_count, "objects had troubles and were skipped"
-    return groups
-
 
 ## 1441 objects skipped, but from the rest the groups were:
 ## will need to investigate those 1441 objects (ascii errors? i.e. 2% milk)
@@ -638,36 +627,6 @@ the_groups = ['Dairy and Egg Products', 'Spices and Herbs', 'Baby Foods',\
               'Fast Foods', 'Meals, Entrees, and Sidedishes', 'Ethnic Foods',\
               'Restaurant Foods']
 
-## a filter for groups (0 for discard, 1 for keep):
-## ** this is used for filtering JSON objects before they get mapped in **
-
-basic_filter = Food_Group_Filter(['Fats and Oils', 'Soups, Sauces, and Gravies',
-                              'Breakfast Cereals', 'Fruits and Fruit Juices',
-                              'Vegetables and Vegetable Products',
-                              'Nut and Seed Products', 'Beverages',
-                              'Legumes and Legume Products', 'Baked Products',
-                              'Snacks', 'Sweets', 'Cereal Grains and Pasta',
-                              'Meals, Entrees, and Sidedishes'])
-
-all_groups_filter = Food_Group_Filter(the_groups)
-        
-veggie_filter = Food_Group_Filter(['Vegetables and Vegetable Products',
-                              'Nut and Seed Products'])
-veggie_beef_filter = Food_Group_Filter(['Vegetables and Vegetable Products',
-                                   'Nut and Seed Products',
-                                   'Beef Products'])
-                                   
-# this is a filter to pick a subset of the vegetable group, names are just
-# copy/pasted from the output of the get_veggies funtion that output 872 veggies
-# many of which are basically the same thing, so this narrows it down a bit
-# ** this search could be done marginally more quickly using id's instead of
-# descriptions, but descriptions make it so looking at the filter is more easily
-# readable
-veggie_name_filter = ['Alfalfa seeds, sprouted, raw', 'Amaranth leaves, raw',
-                      'Artichokes, (globe or french), raw',
-                      'Asparagus, raw', 'Bamboo shoots, raw', 'Beets, raw',
-                      'Broccoli, raw', 'Brussels sprouts, raw',
-                      'Lentils, sprouted, cooked, stir-fried, without salt',]
 
 def get_food_from_group_by_name(group_filter, name):
     """ Given a name and a filter of the group that name is in, returns the
@@ -682,19 +641,30 @@ def get_food_from_group_by_name(group_filter, name):
 ## JSON data
 ## 
 
+
 try:
     current_dir = os.path.dirname(os.path.abspath(__file__))
 except:
     current_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    
+
 json_loc = current_dir + "/database/json/foods-2011-10-03.json"
 jsonfile = open(json_loc, "r")
 
+## json needs to be loaded using multithreading/multiprocessing so it doesn't
+## hold up the entire program.  The multithreading approach is being
+## experimented with bnut my computer only has one processor so I can't run
+## and debug the multithreaded solution
+
 db_tuple = tuple(json.load(jsonfile)) # tuple to prevent mutation
 
-########################################
+
 ## database in pieces, separated by food group
-def make_database_by_foodgroup():
+def make_database_by_foodgroup(full_db):
+    """ Create a dictionary from the json database where the keys are food
+        groups and the values are lists of their members.
+
+        Useful for searching through part of the database.
+        """
     food_groups = ['Dairy and Egg Products', 'Spices and Herbs', 'Baby Foods',\
                   'Fats and Oils', 'Poultry Products', 'Soups, Sauces, and Gravies',\
                   'Sausages and Luncheon Meats', 'Breakfast Cereals',\
@@ -706,11 +676,11 @@ def make_database_by_foodgroup():
                   'Fast Foods', 'Meals, Entrees, and Sidedishes', 'Ethnic Foods',\
                   'Restaurant Foods']
     data_dict = {x:[] for x in food_groups}
-    for item in db_tuple:
+    for item in full_db:
         data_dict[item['group']].append(item)
     return data_dict
 
-db_by_foodgroup = make_database_by_foodgroup()
+db_by_foodgroup = make_database_by_foodgroup(db_tuple)
 
 def get_partial_db(food_groups):
     total = []
@@ -719,26 +689,6 @@ def get_partial_db(food_groups):
     return total
 
 ########################################
-
-def get_filtered_object_count(the_filter):
-    """ Counts the number of objects that can successfully be retrieved from
-        the JSON database as constrained by the_filter
-        """
-    count = 0
-    for jdict in db_tuple:
-        if the_filter.check(jdict["group"]):
-            count += 1
-    return count
-
-def get_filtered_object_names(the_filter):
-    """ Gets the names of the objects that can be successfully retrieved from
-        the JSON database as constrained by the_filter
-        """
-    food_names = []
-    for jdict in db_tuple:
-        if the_filter.check(jdict["group"]):
-            food_names.append(jdict["description"])
-    return food_names
 
 def get_objects_by_group_and_name(food_group_filter, name_filter):
     """ Steps through the JSON database and keeps objects that satisfy the
@@ -752,8 +702,10 @@ def get_objects_by_group_and_name(food_group_filter, name_filter):
     assert type(food_group_filter) is Food_Group_Filter
     # and type(name_filter) is Name_Filter
     objects = []
+
+    partial = get_partial_db(food_group_filter.get_groups())
     
-    for jdict in db_tuple:
+    for jdict in partial:
         if food_group_filter.check(jdict['group']) and\
            name_filter.check(jdict['description']):
             objects.append(jdict)
@@ -768,7 +720,6 @@ def get_object_by_name(name):
             return jdict
     return False
 
-import re
 def search_by_name(word, food_groups):
     matches = []
     # db_tuple is the 'global' database, (not mutated so not declared)

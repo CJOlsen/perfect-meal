@@ -8,7 +8,7 @@
 ## including having both max and min.  This is being made with my Perfect Meal
 ## program in mind but I'd like to spin this piece off as its own little thing
 
-debug = True
+debug = False
 
 def algorithm_names():
     """ Return a list of different algorithm options """
@@ -54,7 +54,7 @@ def ackp(possibilities, minimums, maximums=None, currents=None,
     # dispatch
     if "greedy" in algorithm:
         if "greedy_balance" == algorithm:
-            print 'calling greedy_alg'
+            if debug: print 'calling greedy_alg'
             return greedy_alg(possibilities, minimums, maximums, currents, 
                               balance_indx) # balance_indx defined below
         elif "greedy_balance_pickonce" == algorithm:
@@ -149,7 +149,7 @@ def greedy_alg(possibilities, minimums, maximums, currents, indexer,
     unique: False means a 'possibility' can be used more than once.  True means
             it will be removed from 'possibilities' once used
             """
-    print 'greedy_alg...'
+    if debug: print 'greedy_alg...'
     # find current total
     if currents is not None:
         if len(currents) == 1:
@@ -180,25 +180,25 @@ def greedy_alg(possibilities, minimums, maximums, currents, indexer,
         if unique == True:
             possibilities.remove(current_next)
         return current_next
-    print 'pre while loop'
+    if debug: print 'pre while loop'
     i = 0
     while i < 500:
         i += 1
         if maximums is not None:
             if not dict_greater(maximums[1], total[1]):
                 # dead end reached, return current total
-                print 'dead end reached in greedy search algorithm'
+                if debug: print 'dead end reached in greedy search algorithm'
                 return currents
         if dict_greater(total[1], minimums[1]):
-            print 'success, returning currents'
+            if debug: print 'success, returning currents'
             return currents
         if len(possibilities) < 1:
-            print 'out of new possibilities'
+            if debug: print 'out of new possibilities'
             return currents
         next_item = _next_item_helper(possibilities)
         currents.append(next_item)
         total[1] = dict_add(total[1], next_item[1])
-    print 'end greedy_val'
+    if debug: print 'end greedy_val'
     return currents
 
 
@@ -263,6 +263,7 @@ def runwalk_indx(minimums, total, currents, maximums=None):
 
 
 
+## sanity tests
 def test_greedy():
     minimums = ('minimums', {'a':10, 'b':100, 'c':12,  'd':17, 'e':5})
     maximums = ('maximums', {'a':57, 'b':145, 'c':99,  'd':82, 'e':123})
