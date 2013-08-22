@@ -267,9 +267,9 @@ def goldilocks_indx(minimums, total, currents, maximums):
         max_val = maximums[1][key]
         if total_val is not None and max_val is not None and\
                 min_val is not None:
-            if total_val > max_val:
+            if total_val >= max_val:
                 # remember, lower scores are better
-                return 10000000 #this number needs to be "big enough"
+                return 100000000 #this number needs to be "big enough"
             else:
                 score += ((max_val - min_val) / (max_val - total_val))
     return score
