@@ -295,7 +295,8 @@ to continue with the current value.\n((this isn't hooked up at the moment))"\
         
 
         ## search boxes
-        self.search_label = wx.StaticText(parent=self.panel, label="Search Database")
+        self.search_label = wx.StaticText(parent=self.panel,
+                                          label="Search Database")
         self.search_textbox = wx.TextCtrl(parent=self.panel,
                                           id=-1,
                                           size=(275, -1))

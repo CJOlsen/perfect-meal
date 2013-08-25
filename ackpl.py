@@ -175,6 +175,10 @@ def greedy_alg(possibilities, minimums, maximums, currents, indexer,
             
 
     def _next_item_helper(possibilities):
+        """ Uses the given index method to score each of the possibilites.
+            Keeps the possibility with the lowest score, and if the alg is
+            a "pickonce" removes the winner from 'possibilities'.
+            """
         current_next = possibilities[0]
         current_score = indexer(minimums,
                                 ['total', dict_add(total[1], 
@@ -257,7 +261,7 @@ def balance_indx(minimums, total, currents, maximums=None):
 
 # includes both desire to meet minimum and aversion to exceeding maximum
 def goldilocks_indx(minimums, total, currents, maximums):
-    """ goldilocks_indx by adding points both for being short of the minimum,
+    """ adds points both for being short of the minimum,
         and then for getting too close to the maximum
         """
     assert maximums is not None
@@ -274,14 +278,19 @@ def goldilocks_indx(minimums, total, currents, maximums):
                 score += ((max_val - min_val) / (max_val - total_val))
     return score
 
-# Complex Indexers
+# Complex Indexers (could make these with higher order functions?)
 def alternating_indx(minimums, total, currents, maximums=None):
+    """ Switches back and forth betwenen finishline_indx and balance_indx 
+        """
     if len(currents) % 2 == 0:
         return finishline_indx(minimums, total, currents)
     else:
         return balance_indx(minimums, total, currents)
 
 def runwalk_indx(minimums, total, currents, maximums=None):
+    """ Uses finishline_indx until a certain closeness to the goal is reached,
+        then uses balance_indx.
+        """
     ## needs dict_sub method to find total - currents[-1]
     if len(currents) < 1:
         return finishline_indx(minimums, total, currents)
